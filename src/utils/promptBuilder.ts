@@ -178,7 +178,8 @@ export const buildUpdatePrompt = async (marketData: any): Promise<string> => {
     // Asumiendo que el usuario opera en zona CST (Mexico) donde las 08:30 NY son las 07:30 CST
     // Si el usuario opera en EST directo, las horas serán 8 y 9 correspondientemente.
     // Para hacer esto tolerante a EST/CST evaluaremos la firma del minuto 30.
-    if ((localHour === 7 || localHour === 8) && localMinute >= 30 && localMinute <= 35) {
+    // *MODIFICADO TEMPORALMENTE PARA SIMULACIÓN: Activo entre min 20 y 40*
+    if ((localHour === 7 || localHour === 8) && localMinute >= 20 && localMinute <= 40) {
         timeContextAlert = `\n    [!!! ALERTA DE SISTEMA: APERTURA MACRO PRE-MERCADO (08:30 EST) !!!]\n    > Se acaba de publicar data macroeconómica. Volatilidad esperada. Jim, Axe: Prioricen la narrativa de expansión de rango y rechazo/aceptación de VAH/VAL inmediatos.`;
     } else if ((localHour === 8 || localHour === 9) && localMinute >= 30 && localMinute <= 35) {
         timeContextAlert = `\n    [!!! ALERTA DE SISTEMA: CAMPANA DE APERTURA RTH (09:30 EST) !!!]\n    > Oficialmente el mercado está abierto. Flujo institucional activo y descubrimiento de precio agresivo. Jim, Axe: Lean la primera vela como la intención primaria del día.`;

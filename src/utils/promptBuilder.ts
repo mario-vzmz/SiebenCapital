@@ -100,10 +100,10 @@ export const buildPlanVueloPrompt = async (inputs: UserInputs): Promise<string> 
     `;
 };
 
-export const buildAperturaPrompt = async (marketData: any): Promise<string> => {
+export const buildAperturaPrompt = async (inputs: { marketData: any, balance: number, drawdownMax: number, marginPerContract: number }): Promise<string> => {
     let baseDate = new Date();
-    if (marketData && marketData.timestamp) {
-        baseDate = new Date(marketData.timestamp);
+    if (inputs.marketData && inputs.marketData.timestamp) {
+        baseDate = new Date(inputs.marketData.timestamp);
     }
     const pad = (n: number) => n.toString().padStart(2, '0');
     const dateStr = `${baseDate.getFullYear()}-${pad(baseDate.getMonth() + 1)}-${pad(baseDate.getDate())}`;
@@ -112,7 +112,7 @@ export const buildAperturaPrompt = async (marketData: any): Promise<string> => {
     const endIso = `${dateStr}T08:55:00`;
 
     const rawVwaps = await getVWAPRange(startIso, endIso);
-    const mgi = formatNumbers(marketData || await getPreMarketData());
+    const mgi = formatNumbers(inputs.marketData || await getPreMarketData());
 
     // Construir el string del array de velas
     const vwapLog = rawVwaps.map(v => {
@@ -127,10 +127,15 @@ export const buildAperturaPrompt = async (marketData: any): Promise<string> => {
     return `
     ANÁLISIS DE APERTURA (OPENING ANALYSIS)
     ---------------------------------------
-    1. VECTOR OHLC DE APERTURA (08:30 - 08:55):
+    1. DATOS FINANCIEROS (TAYLOR):
+    - Saldo de Cuenta: $${inputs.balance} USD
+    - Drawdown Max: ${inputs.drawdownMax}%
+    - Margen por Contrato: $${inputs.marginPerContract} USD
+
+    2. VECTOR OHLC DE APERTURA (08:30 - 08:55):
     ${vwapLog || 'Sin datos de VWAP para la apertura hoy. Asume simulación o falta de datos.'}
 
-    2. DATOS MGI DE SOPORTE:
+    3. DATOS MGI DE SOPORTE:
     - Precio VWAP Actual [.VWAP_PRICE.candle.close]: ${currentPrice}
     - Rango de ayer: Y_MIN [${mgi.MGI_RTH?.Y_MIN}] - Y_MAX [${mgi.MGI_RTH?.Y_MAX}]
     - Valor de ayer (VA): Y_VAL [${mgi.MGI_RTH?.Y_VAL}] - Y_VAH [${mgi.MGI_RTH?.Y_VAH}]
@@ -145,10 +150,10 @@ export const buildAperturaPrompt = async (marketData: any): Promise<string> => {
 
 
 
-export const buildUpdatePrompt = async (marketData: any): Promise<string> => {
+export const buildUpdatePrompt = async (inputs: { marketData: any, balance: number, drawdownMax: number, marginPerContract: number }): Promise<string> => {
     let baseDate = new Date();
-    if (marketData && marketData.timestamp) {
-        baseDate = new Date(marketData.timestamp);
+    if (inputs.marketData && inputs.marketData.timestamp) {
+        baseDate = new Date(inputs.marketData.timestamp);
     }
     const pad = (n: number) => n.toString().padStart(2, '0');
     const dateStr = `${baseDate.getFullYear()}-${pad(baseDate.getMonth() + 1)}-${pad(baseDate.getDate())}`;
@@ -157,7 +162,7 @@ export const buildUpdatePrompt = async (marketData: any): Promise<string> => {
     const endIso = `${dateStr}T${pad(baseDate.getHours())}:${pad(baseDate.getMinutes())}:${pad(baseDate.getSeconds())}`;
 
     const rawVwaps = await getVWAPRange(startIso, endIso);
-    const mgi = formatNumbers(marketData || await getPreMarketData());
+    const mgi = formatNumbers(inputs.marketData || await getPreMarketData());
 
     // Construir el string del array de velas, recortando solo a las últimas 30 (mitigando 'Lost in the middle')
     const recentVwaps = rawVwaps.slice(-30);
@@ -176,8 +181,6 @@ export const buildUpdatePrompt = async (marketData: any): Promise<string> => {
     let timeContextAlert = '';
 
     // Asumiendo que el usuario opera en zona CST (Mexico) donde las 08:30 NY son las 07:30 CST
-    // Si el usuario opera en EST directo, las horas serán 8 y 9 correspondientemente.
-    // Para hacer esto tolerante a EST/CST evaluaremos la firma del minuto 30.
     if ((localHour === 7 || localHour === 8) && localMinute >= 30 && localMinute <= 35) {
         timeContextAlert = `\n    [!!! ALERTA DE SISTEMA: APERTURA MACRO PRE-MERCADO (08:30 EST) !!!]\n    > Se acaba de publicar data macroeconómica. Volatilidad esperada. Jim, Axe: Prioricen la narrativa de expansión de rango y rechazo/aceptación de VAH/VAL inmediatos.`;
     } else if ((localHour === 8 || localHour === 9) && localMinute >= 30 && localMinute <= 35) {
@@ -189,10 +192,15 @@ export const buildUpdatePrompt = async (marketData: any): Promise<string> => {
     ACTUALIZACIÓN ESTRUCTURAL (MARKET UPDATE)
     ----------------------------------------${timeContextAlert}
     
-    1. VECTOR OHLC RECIENTE (Últimos 30 minutos hasta la Actualidad):
+    1. DATOS FINANCIEROS (TAYLOR):
+    - Saldo de Cuenta: $${inputs.balance} USD
+    - Drawdown Max: ${inputs.drawdownMax}%
+    - Margen por Contrato: $${inputs.marginPerContract} USD
+
+    2. VECTOR OHLC RECIENTE (Últimos 30 minutos hasta la Actualidad):
     ${vwapLog || 'Sin datos de VWAP registrados.'}
     
-    2. DATOS MGI Y VOLATILIDAD PUNTUAL:
+    3. DATOS MGI Y VOLATILIDAD PUNTUAL:
     - Precio VWAP Actual [.VWAP_PRICE.candle.close]: ${currentPrice}
     - VIX: ${mgi.MGI_MACRO?.VIX}
     - ATR 15M: ${mgi.MGI_MACRO?.ATR_15MIN}

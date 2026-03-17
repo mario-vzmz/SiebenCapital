@@ -383,6 +383,7 @@ export default function App() {
       setIsMentalCheckOpen(true);
     } else {
       launchFlightPlan(undefined, currentData);
+      setMentalCheck('');
     }
   };
 

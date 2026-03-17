@@ -71,14 +71,6 @@ export function MGIOutput({
                             className="w-full bg-operator-bg border border-operator-border rounded-md p-3 text-[11px] font-mono text-operator-text focus:outline-none focus:border-sieben transition-all min-h-[80px]"
                         />
                     </div>
-                    <button
-                        onClick={launchFlightPlan}
-                        disabled={!mentalCheck.trim() || isProcessing}
-                        className="w-full py-4 bg-sieben text-white rounded-md text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-sieben-light hover:text-black transition-all disabled:opacity-50 disabled:bg-operator-border border border-transparent disabled:border-operator-border"
-                    >
-                        {isProcessing ? <RefreshCw className="animate-spin" size={14} /> : <Zap size={14} />}
-                        Confirmar y Lanzar Fase 2
-                    </button>
                 </div>
             </div>
         </div>

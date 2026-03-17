@@ -2,32 +2,42 @@
 
 ## Active Phase
 
-### Phase 2: Gestión Activa y Automatización Horaria
-**Goal**: Lograr que el sistema reaccione orgánicamente a eventos de mercado y audite trades activos sin romper su lógica.
-
-#### Plan 2.1: Implementar Disparadores Temporales (08:30 / 09:30 EST)
-- [ ] Construir lógica en `useTaskScheduler.ts` o componente padre para inyectar un tag *[APERTURA]* o *[INITIAL BALANCE]* en la data de TradingView.
-- [ ] Modificar `promptBuilder.ts` para que Jim y Axe prioricen este tag cuando el horario coincida.
-
-#### Plan 2.2: Contexto de Trade Activo
-- [ ] Recibir estado `activeTrade` desde el Frontend.
-- [ ] Alterar instrucciones de Axe: si hay trade, Axe pasa a modo Trail Stop / Gestión en lugar de buscar entradas.
-- [ ] Alterar instrucciones de Taylor: si hay trade, Taylor evalúa RRR dinámico en vez de aprobar capital virgen.
+### Phase 3: Optimización y Backtesting de Regímenes
+**Goal**: Refinar la precisión de Wags y la visualización de datos históricos para una toma de decisiones más rápida.
+- [ ] Implementar Dashboard de Performance en la UI.
+- [ ] Sistema de alertas para divergencia entre Jim y Taylor.
 
 ---
 
 ## Future Phases
 
-### Phase 3: Dashboard Ejecutivo & Cierre
-**Goal**: Resumen de fin de día y logging de trades.
-- Evaluar métricas de desempeño de las ejecuciones aprobadas.
-- Activar a Wags (CIO) para dar directrices macro del día siguiente.
+### Phase 4: Escalabilidad de Capital y Multi-Cuenta
+**Goal**: Gestionar múltiples contratos y cuentas con la misma directiva de régimen.
 
 ---
 
 ## Completed Phases
 
-### Phase 1: Estabilización Cognitiva
+### Milestone 2: Taylor Dinámico + Aprendizaje + Wags Auditoría ✓ COMPLETADO 2026-03-13
+- ✓ Taylor: Riesgo dinámico (SL, RRR, Max Trades) por exposición.
+- ✓ regime_memory.py: Recuperación de lecciones históricas (Pure Python).
+- ✓ Prompt: Inyección de [MEMORIA RÉGIMEN] en Jim (Plan Vuelo/Apertura).
+- ✓ Wags: Auditoría de cierre con JSON estructurado y auto-guardado en lessons.
+- ✓ DB: Tablas `taylor_sessions` y `wags_daily_audit`.
+
+### Milestone 1: Sistema de Regímenes AMT ✓ COMPLETADO 2026-03-13
+- ✓ MGI_RTH con exceso CONFIRMED/PARTIAL/TRUNCATED.
+- ✓ MGI_IB con clasificación BALANCE/TREND_DISGUISED/AMBIGUOUS.
+- ✓ relay.py: tablas `ib_daily` y `rth_daily`.
+- ✓ Jim: emite `REGIME_ANALYSIS` con `nivel_exposicion` 1-4.
+- ✓ Axe: filtra setups por `nivel_exposicion`.
+- ✓ Memoria: tabla `lessons` enriquecida con columnas de régimen.
+
+### Phase 2: Gestión Activa y Automatización Horaria ✓ COMPLETADO 2026-03-11
+- ✓ Disparadores Temporales (08:30 / 09:30 EST).
+- ✓ Contexto de Trade Activo (Jim, Axe, Taylor).
+
+### Phase 1: Estabilización Cognitiva ✓ COMPLETADO
 - ✓ Refactor de ingesta VWAP a `slice(-30)`
 - ✓ Separar identidad TAYLOR_EJECUCION de TAYLOR_ACTUALIZACION
 - ✓ Eliminar la repetición de tablas matemáticas de Taylor

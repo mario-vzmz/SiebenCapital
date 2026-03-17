@@ -16,12 +16,16 @@ Mantener al trader sujeto a un proceso analítico estricto y elocuente dictado p
 - ✓ [Sincronización Dinámica] — Merge y envío de 30 velas históricas ("Slice") para evitar amnesia de LLM.
 - ✓ [Orquestación de Agentes] — Pipeline jerárquico (Jim -> Axe -> Taylor -> Wendy -> Wags).
 - ✓ [Interfaz Reactiva] — Polling continuo a 100hz sin saturar el frontend (AgentFeed).
+- ✓ [Gestión de Trade Activo] — Lectura y seguimiento algorítmico cuando una orden "Go" ha sido aprobada.
+- ✓ [Sistema de Regímenes AMT] — Jim REGIME_ANALYSIS, Axe filtrado por exposición y persistencia de MGI_IB/RTH.
+- ✓ [Taylor Dinámico] — Cálculo de parámetros de riesgo (SL, RRR, max trades) por nivel de exposición.
+- ✓ [Sistema de Aprendizaje] — Jim recibe memoria histórica de lecciones filtradas por régimen (Pure Python Context).
+- ✓ [Wags Dashboard] — Auditoría de régimen al cierre, auto-guardado de lecciones y persistencia en SQLite.
 
 ### Active
 
-- [ ] [Automatización Horaria] — Disparadores lógicos basados en aperturas de sesión (08:30 y 09:30).
-- [ ] [Gestión de Trade Activo] — Lectura y seguimiento algorítmico cuando una orden "Go" ha sido aprobada.
-- [ ] [Auditoría del Contexto Dalton] — Generación automática del "Contexto de Mercado" sin intervención narrativa suelta.
+- [Optimización de UI] — Dashboard avanzado de control de riesgo y visualización de lecciones históricas.
+- [Backtesting de Regímenes] — Comparar la directiva de Wags vs el resultado real para ajustar niveles de exposición.
 
 ### Out of Scope
 
@@ -32,7 +36,7 @@ Mantener al trader sujeto a un proceso analítico estricto y elocuente dictado p
 
 - **Tech Stack:** Frontend en React/Vite (TSX), Backend en Python Flask recibiendo Webhooks de TradingView (enrutados por ngrok).
 - **LLM Backbone:** Google Gemini / Claude APIs; la ingeniería de prompts (`systemInstructions.ts`) es el alma de la aplicación.
-- **Estado Actual:** Fase 2 avanzada. La ingesta de datos y el parseo del MGI son robustos. El foco actual es perfeccionar cómo Taylor (Riesgo) y Axe (Ejecución) se comunican sin repetir outputs matemáticos al manejar actualizaciones estructurales.
+- **Estado Actual:** Milestone 2 Completado. El sistema ahora es consciente del régimen, ajusta el riesgo dinámicamente y aprende de cada sesión de cierre.
 
 ## Constraints
 
@@ -43,8 +47,9 @@ Mantener al trader sujeto a un proceso analítico estricto y elocuente dictado p
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Separación Práctica de Taylor | Evitar re-calculos matemáticos repetitivos cuando solo se necesita actualización estructural (TAYLOR_ACTUALIZACION). | — Pending |
+| Separación Práctica de Taylor | Evitar re-calculos matemáticos repetitivos cuando solo se necesita actualización estructural (TAYLOR_ACTUALIZACION). | ✓ Done |
 | Polling en Cliente | Evita la complejidad de WebSockets para un prototipo rápido, y delega a Python el merge de archivos planos. | ✓ Good |
+| Memoria Sin LLM | El resumen de régimen se genera vía Python puro para ahorrar tokens y latencia. | ✓ Good |
 
 ---
-*Last updated: 2026-03-07 después de inicialización interactiva via GSD.*
+*Last updated: 2026-03-13 tras completar Milestone 2 (Taylor Dinámico + Aprendizaje + Wags Audit).*

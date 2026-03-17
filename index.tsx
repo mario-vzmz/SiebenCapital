@@ -8,18 +8,32 @@ import {
 } from 'lucide-react';
 
 // Tipos
-import { MGIData, Deliberation, TradeInput, TradeLogInput } from './types';
+import { MGIData, Deliberation, TradeInput, TradeLogInput, ActiveSetup } from './types';
 
 // Componentes
 import { Sidebar } from './components/Sidebar';
+import { SidebarV2 } from './components/Sidebar_v2';
 import { TasksSidebar } from './components/TasksSidebar';
 import { MGIOutput } from './components/MGIOutput';
 import { AgentFeed } from './components/AgentFeed';
 import { MentalCheckDialog, WendyCheckInput } from './components/MentalCheckDialog';
 import { TradeDialog } from './components/TradeDialog';
 import { TradeLogDialog } from './components/TradeLogDialog';
+import { CierreDiaDialog } from './components/CierreDiaDialog';
+import { ChatBar } from './components/ChatBar';
 
 // Utils
+const buildHistoryPayload = (delibs: Deliberation[]) => {
+  // Tomamos solo las últimas 5 para no saturar la ventana de contexto
+  const recent = delibs.slice(-5);
+  const history: any[] = [];
+  recent.forEach(d => {
+    history.push({ role: 'user', parts: [{ text: d.input || '...' }] });
+    history.push({ role: 'model', parts: [{ text: d.output }] });
+  });
+  return history;
+};
+
 import {
   buildPlanVueloPrompt,
   buildAperturaPrompt,
@@ -31,15 +45,115 @@ import {
   buildChatPrompt,
   getSystemInstructionForTask
 } from './src/utils/promptBuilder';
-import { calculateOpeningContext } from './src/utils/openingAnalysis';
 import { saveDeliberation } from './src/services/deliberationService';
-import { useUpdateLimit } from './src/hooks/useUpdateLimit';
-import { getDeliberations } from './src/services/deliberationService';
-import { SYSTEM_INSTRUCTIONS } from './src/systemInstructions';
 
-// --- INSTRUCCIONES MAESTRAS (PROTOCOLO HÍBRIDO 2-STEPS V2 - USD NATIVO) ---
-// Se construyen dinámicamente usando SYSTEM_INSTRUCTIONS del módulo central.
+// --- HELPER: PARSE AXE SETUP ---
+async function parseAndSaveAxeSetup(axeOutput: string) {
+  // REGEX MEJORADO: Más flexible con espacios y caracteres de tabla
+  const tableRegex = /\|\s*([^|]+?)\s*\|\s*([^|]*?(?:LONG|SHORT)[^|]*?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/;
+  const match = axeOutput.match(tableRegex);
+  
+  if (!match) return null;
+  
+  const setup_name = match[1].trim();
+  const direction = match[2].trim().includes('LONG') ? 'LONG' : 'SHORT';
+  const zone_price = parseFloat(match[3]) || parseFloat(match[5]);
+  const entry_limit = parseFloat(match[5]);
+  const stop_loss = parseFloat(match[6]);
+  const take_profit = parseFloat(match[7]);
+  
+  // Calcular invalidación: SL + 2 pts adicionales (o -2 para LONG)
+  const invalidation_price = direction === 'LONG' 
+    ? stop_loss - 2.0 
+    : stop_loss + 2.0;
+  
+  // Calcular expiración (20 min por defecto para esta fase)
+  const expiry_time = new Date(Date.now() + 20 * 60000).toISOString();
+  
+  const setup: Partial<ActiveSetup> = {
+    setup_name,
+    direction,
+    zone_price,
+    trigger_condition: match[4].trim(),
+    entry_limit,
+    stop_loss,
+    take_profit,
+    invalidation_price,
+    expiry_time,
+    status: 'WAITING'
+  };
+
+  try {
+    await fetch('/api/active_setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(setup)
+    });
+    console.log("✅ Auto-parsed Setup saved:", setup_name);
+  } catch (e) {
+    console.error("Error saving auto-parsed setup:", e);
+  }
+}
+
+import { useUpdateLimit } from './src/hooks/useUpdateLimit';
+import { getDeliberations, saveTradeLog } from './src/services/deliberationService';
+import { SYSTEM_INSTRUCTIONS } from './src/systemInstructions';
+import { evaluateTaylorRisk, evaluateActiveRisk } from './src/utils/riskEngine';
+
 const PHASE_1_INSTRUCTION = `${SYSTEM_INSTRUCTIONS.core}\n\n${SYSTEM_INSTRUCTIONS.jim_planVuelo}\n\n${SYSTEM_INSTRUCTIONS.wendy_planVuelo}`;
+
+// --- COMPONENTES AUXILIARES ---
+const ActiveSetupBadge = ({ setup }: { setup: ActiveSetup | null }) => {
+  if (!setup || setup.status === 'NONE' || setup.status === 'CANCELLED') return null;
+  
+  if (setup.status === 'TRIGGERED') {
+    const isLong = setup.direction === 'LONG';
+    return (
+      <div className={`flex items-center gap-4 px-6 py-2.5 rounded-2xl backdrop-blur-2xl bg-[#0a0f1c]/90 border transition-all duration-500
+        ${isLong 
+          ? 'border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.5)] bg-emerald-500/5' 
+          : 'border-rose-500/50 shadow-[0_0_30px_rgba(244,63,94,0.5)] bg-rose-500/5'}`}>
+        <div className="flex flex-col">
+          <span className={`text-xs font-black tracking-[0.15em] uppercase leading-none mb-1.5
+            ${isLong ? 'text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.7)]' : 'text-rose-400 drop-shadow-[0_0_10px_rgba(244,63,94,0.7)]'}`}
+            style={{ fontFamily: "'Oxanium', cursive" }}>
+            {isLong ? '▲' : '▼'} {setup.direction} — GO
+          </span>
+          <div className="flex items-center gap-3 opacity-90">
+            <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Target:</span>
+            <span className="text-sm font-mono text-white font-bold tracking-tighter">{setup.take_profit.toFixed(2)}</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+            <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Stop:</span>
+            <span className="text-sm font-mono text-white font-bold tracking-tighter">{setup.stop_loss.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (setup.status === 'WAITING') {
+    return (
+      <div className="flex items-center gap-4 px-6 py-3 rounded-2xl backdrop-blur-2xl bg-[#0a0f1c]/80 border border-white/5 animate-pulse">
+        <span className="text-xs font-black text-white/60 uppercase tracking-[0.25em]"
+          style={{ fontFamily: "'Oxanium', cursive" }}>
+          ⏳ {setup.direction} — ZONA: {setup.zone_price.toFixed(2)}
+        </span>
+      </div>
+    );
+  }
+
+  if (setup.status === 'EXPIRED') {
+     return (
+      <div className="flex items-center gap-4 px-6 py-2 rounded-2xl border border-white/5 bg-white/5 opacity-40">
+        <span className="text-xs font-mono text-white/50 uppercase tracking-widest">
+          ✕ SETUP EXPIRADO
+        </span>
+      </div>
+    );
+  }
+  
+  return null;
+};
 
 export default function App() {
   const [marketData, setMarketData] = useState<MGIData | null>(null);
@@ -66,14 +180,15 @@ export default function App() {
   // New session session flows state
   const [isTradeDialogOpen, setIsTradeDialogOpen] = useState(false);
   const [isTradeLogOpen, setIsTradeLogOpen] = useState(false);
+  const [isCierreDiaOpen, setIsCierreDiaOpen] = useState(false);
   const [activeTrade, setActiveTrade] = useState<TradeInput | null>(() => {
     const saved = localStorage.getItem("SIEBEN_ACTIVE_TRADE");
     return saved ? JSON.parse(saved) : null;
   });
   const [lastUpdateAttempt, setLastUpdateAttempt] = useState(0); // For rate limiting
-  const [chatInput, setChatInput] = useState(""); // New state for chat
 
   const [hasCustomKey, setHasCustomKey] = useState(false);
+  const [currentRegime, setCurrentRegime] = useState<string>("Desconocido");
 
   // Default balance in USD
   const [balance, setBalance] = useState(localStorage.getItem("SIEBEN_BALANCE_USD") || "50000");
@@ -82,7 +197,13 @@ export default function App() {
 
   // --- RELAY CONNECTION STATE ---
   const [relayStatus, setRelayStatus] = useState<'DISCONNECTED' | 'WAITING' | 'CONNECTED'>('DISCONNECTED');
-  const [lastProcessedTime, setLastProcessedTime] = useState<string | null>(null);
+  const lastProcessedTimeRef = useRef<string | null>(null);
+  const isProcessingRef = useRef(false);
+  
+  // --- LIVE PRICE & SETUP TRACKING ---
+  const [prevPrice, setPrevPrice] = useState<number | null>(null);
+  const [priceDirection, setPriceDirection] = useState<'up' | 'down' | 'flat'>('flat');
+  const [activeSetup, setActiveSetup] = useState<ActiveSetup | null>(null);
 
   useEffect(() => {
     localStorage.setItem("SIEBEN_BALANCE_USD", balance);
@@ -126,6 +247,21 @@ export default function App() {
       }
     };
     fetchHistory();
+
+    // A-01: Hidratación inicial de datos MGI (VAH, VAL, POC, ATR)
+    const fetchInitialMgi = async () => {
+      try {
+        const response = await fetch('/api/marketdata/pre-market');
+        const data = await response.json();
+        if (data && !data.error && !data.message) {
+          console.log("🏢 Initial MGI Hydration:", data);
+          handleDataIngest(data);
+        }
+      } catch (e) {
+        console.warn("No se pudo hidratar MGI inicial:", e);
+      }
+    };
+    fetchInitialMgi();
   }, []);
 
   const openKeyDialog = async () => {
@@ -142,8 +278,14 @@ export default function App() {
   const handleDataIngest = (newData: any) => {
     console.log("📥 MGI Data Received:", newData);
     setMarketData(prev => {
-      if (!prev) return newData;
+      const newPrice = newData.PRICE?.candle?.close;
+      if (newPrice && prev?.PRICE?.candle?.close) {
+        if (newPrice > prev.PRICE.candle.close) setPriceDirection('up');
+        else if (newPrice < prev.PRICE.candle.close) setPriceDirection('down');
+        setPrevPrice(prev.PRICE.candle.close);
+      }
 
+      if (!prev) return newData;
       // Fusionamos los objetos. Si un campo es un objeto (como MGI_RTH), lo actualizamos.
       const merged = { ...prev };
       for (const key in newData) {
@@ -183,20 +325,16 @@ export default function App() {
   // --- RELAY POLLING MECHANISM ---
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (phase !== 'IDLE') return; // Stop polling if analytics is in progress
-
+      // 1. Fetch Market Data Polling
       try {
-        const response = await fetch('http://localhost:5000');
+        const response = await fetch('/api/status');
         const data = await response.json();
 
         if (data) {
           if (data.status === 'JSON_SUCCESS' || data.status === 'PLAIN_TEXT_RECEIVED') {
             setRelayStatus('CONNECTED');
-
-            // Check if it's new data by timestamp
-            if (data.timestamp && data.timestamp !== lastProcessedTime && data.parsed_data) {
-              console.log("🔥 NEW DATA DETECTED:", data);
-              setLastProcessedTime(data.timestamp);
+            if (data.timestamp && data.timestamp !== lastProcessedTimeRef.current && data.parsed_data) {
+              lastProcessedTimeRef.current = data.timestamp;
               handleDataIngest(data.parsed_data);
             }
           } else {
@@ -205,12 +343,20 @@ export default function App() {
         }
       } catch (err) {
         setRelayStatus('DISCONNECTED');
-        // Silent fail for polling
+      }
+
+      // 2. Fetch Active Setup Polling
+      try {
+        const setupRes = await fetch('/api/active_setup');
+        const setupData = await setupRes.json();
+        setActiveSetup(setupData);
+      } catch (e) {
+        console.warn("Failed to fetch active setup");
       }
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(interval);
-  }, [phase, lastProcessedTime]);
+  }, []);
 
   const triggerTradingPlan = () => {
     let currentData = marketData;
@@ -218,7 +364,7 @@ export default function App() {
     // Si NO hay datos (Simulación), inyectamos mock y ejecutamos Fase 1 (MGI)
     if (!currentData) {
       const mock: MGIData = {
-        VWAP_PRICE: {
+        PRICE: {
           candle: { open: 24827.00, high: 24830.75, low: 24823.50, close: 24829.75 },
           VWAP_ETH: 24892.25, VWAP_RTH: 24848.75, VWAP_RTH_1SD_UP: 24898.25, VWAP_RTH_1SD_DN: 24799.50, VWAP_RTH_2SD_UP: 24947.50, VWAP_RTH_2SD_DN: 24750.00
         },
@@ -241,10 +387,19 @@ export default function App() {
   };
 
   const launchFlightPlan = async (wendyData?: WendyCheckInput, overrideData?: MGIData) => {
-    const dataToUse = overrideData || marketData;
-    if (!dataToUse) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
 
-    if (!wendyData && !mentalCheck.trim()) return;
+    const dataToUse = overrideData || marketData;
+    if (!dataToUse) {
+      isProcessingRef.current = false;
+      return;
+    }
+
+    if (!wendyData && !mentalCheck.trim()) {
+      isProcessingRef.current = false;
+      return;
+    }
 
     // Use either the strongly typed data from the dialog or a fallback manual string
     const finalData: WendyCheckInput = wendyData || {
@@ -310,10 +465,14 @@ export default function App() {
       else setApiError(`FALLO FASE 2: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
   const handleAperturaAnalysis = async () => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     try {
       setIsProcessing(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -324,54 +483,122 @@ export default function App() {
         marginPerContract: parseFloat(marginPerContract)
       });
 
-      const res = await ai.models.generateContent({
+      // --- PHASE 1: JIM (Context & Regime) ---
+      const res1 = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
-        config: {
-          systemInstruction: getSystemInstructionForTask('apertura'),
-        }
+        contents: [
+          ...buildHistoryPayload(deliberations),
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
+        config: { systemInstruction: getSystemInstructionForTask('apertura_phase1') }
       });
 
-      const text = res.text || "FALLO ANALISIS APERTURA.";
+      const jimOutput = res1.text || "Error en Fase 1 (Jim).";
+      
+      // Parsear REGIME_ANALYSIS
+      let regimeContextText = "";
+      const regimeMatch = jimOutput.match(/```json\n([\s\S]*?)\n```/);
+      if (regimeMatch) {
+        try {
+          const regimeData = JSON.parse(regimeMatch[1]);
+          setCurrentRegime(`${regimeData.REGIME_ANALYSIS?.sesgo_direccional} - ${regimeData.REGIME_ANALYSIS?.contexto_ib} (Conf: ${regimeData.REGIME_ANALYSIS?.regime_confidence_score})`);
+        } catch (e) {
+          console.error("Error parsing regime JSON", e);
+        }
+        regimeContextText = `\n\n[!!! RÉGIMEN ESTRUCTURAL DETECTADO (AUDITORÍA JIM) !!!]\n${regimeMatch[1]}\n\nJim ha dictaminado este régimen. Axe y Taylor DEBEN cumplir estrictamente las reglas de filtrado y exposición asociadas.`;
+      }
+
+      // --- PHASE 2: AXE, TAYLOR & THE CHAIN ---
+      const res2 = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [
+          ...buildHistoryPayload(deliberations),
+          { role: 'user', parts: [{ text: prompt }] },
+          { role: 'model', parts: [{ text: jimOutput }] },
+          { role: 'user', parts: [{ text: `Jim ha entregado su diagnóstico.${regimeContextText}\n\nContinúen con la ejecución en cascada: Axe, Taylor, Wendy y Wags.` }] }
+        ],
+        config: { systemInstruction: getSystemInstructionForTask('apertura_phase2') }
+      });
+
+      const chainOutput = res2.text || "Error en Fase 2 (Chain).";
+      let fullText = jimOutput + "\n\n" + chainOutput;
+
+      // --- AUTO-PARSE AXE SETUP ---
+      if (chainOutput.includes("AXE_DONE")) {
+         await parseAndSaveAxeSetup(chainOutput);
+      }
+
+      // --- PERSISTENCIA TAYLOR_SIZING ---
+      const taylorMatch = chainOutput.match(/```json\n([\s\S]*?)\n```/);
+      if (taylorMatch) {
+          try {
+              const taylorData = JSON.parse(taylorMatch[1]);
+              if (taylorData.TAYLOR_SIZING) {
+                  // Agregar capital snapshot vivo
+                  taylorData.TAYLOR_SIZING.capital_snapshot = parseFloat(balance);
+                  fetch('/api/taylor/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(taylorData)
+                  }).catch(e => console.error("Error persistiendo Taylor Sizing", e));
+              }
+          } catch (e) { console.error("Error parsing Taylor JSON", e); }
+      }
+
+      // Early Exit post-processing (Jim checks)
+      const upperText = fullText.toUpperCase();
+      const isChoppy = upperText.includes("CHOPPY") || upperText.includes("ILEGIBLE") || upperText.includes("FRICCIÓN") || upperText.includes("BLOQUEADA");
+      if (isChoppy) {
+        const cutIdx = fullText.indexOf("STATUS: JIM_DONE");
+        if (cutIdx !== -1) {
+          fullText = fullText.substring(0, cutIdx + "STATUS: JIM_DONE".length);
+        }
+        fullText += "\n\n⚠️ **[SISTEMA - EARLY EXIT]**: Jim detectó mercado inoperable. El resto del ciclo fue abortado.";
+      } else {
+        const taylorEval = evaluateTaylorRisk(fullText);
+        fullText += "\n\n" + taylorEval.message;
+      }
 
       const delibData = {
         taskId: 'apertura',
         input: `Apertura Invocada (08:55 Vector)`,
-        output: text,
-        agents: ['core', 'jim', 'axe', 'wags'],
+        output: fullText,
+        agents: ['core', 'jim', 'axe', 'wendy', 'wags', 'taylor'],
         status: 'COMPLETED'
       };
-
-      // 2. Persistir en Backend
       await saveDeliberation(delibData);
 
       const newDelib: Deliberation = {
         id: `apertura-${Date.now()}`,
         timestamp: Date.now(),
         input: delibData.input,
-        output: text,
+        output: fullText,
         status: "COMPLETED"
       };
-
       setDeliberations(prev => [...prev, newDelib]);
       setCompletedTasks(prev => new Set(prev).add('apertura'));
     } catch (err: any) {
       setApiError(`FALLO ANALISIS APERTURA: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
 
 
   const handleUpdateAnalysis = async () => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     if (!completedTasks.has('planVuelo')) {
       setApiError("ERROR: Debe completar el Plan de Vuelo antes de actualizar.");
+      isProcessingRef.current = false;
       return;
     }
-
     if (!canUpdate) {
       setApiError(`LÍMITE ALCANZADO: 100 actualizaciones por hora. Intente más tarde.`);
+      isProcessingRef.current = false;
       return;
     }
 
@@ -387,29 +614,96 @@ export default function App() {
         marginPerContract: parseFloat(marginPerContract)
       });
 
-      const res = await ai.models.generateContent({
+      // --- PHASE 1: JIM ---
+      const res1 = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
-        config: { systemInstruction: getSystemInstructionForTask('actualizacion') }
+        contents: [
+          // Use a smaller history window for updates to break long output patterns
+          ...buildHistoryPayload(deliberations.slice(-2)),
+          { role: 'user', parts: [{ text: prompt + "\n\nIMPORTANTE: Jim, sigue ESTRICTAMENTE el formato de MÁXIMO 3 BULLETS CORTOS para este reporte estructural." }] }
+        ],
+        config: { systemInstruction: getSystemInstructionForTask('actualizacion_phase1') }
       });
 
-      const text = res.text || "Error en actualización.";
+      const jimOutput = res1.text || "Error en Fase 1 (Jim).";
+      
+      // Parsear REGIME_ANALYSIS
+      let regimeContextText = "";
+      const regimeMatch = jimOutput.match(/```json\n([\s\S]*?)\n```/);
+      if (regimeMatch) {
+         try {
+           const regimeData = JSON.parse(regimeMatch[1]);
+           const newRegime = `${regimeData.REGIME_ANALYSIS?.sesgo_direccional} - ${regimeData.REGIME_ANALYSIS?.contexto_ib} (Conf: ${regimeData.REGIME_ANALYSIS?.regime_confidence_score})`;
+           setCurrentRegime(newRegime);
+         } catch (e) { console.error("Error parsing regime JSON update", e); }
+         regimeContextText = `\n\n[!!! RÉGIMEN ESTRUCTURAL DETECTADO (AUDITORÍA JIM) !!!]\n${regimeMatch[1]}\n\nJim ha dictaminado este régimen. Axe y Taylor DEBEN cumplir estrictamente las reglas de filtrado y exposición asociadas.`;
+      }
+
+      // --- PHASE 2: AXE, TAYLOR & THE CHAIN ---
+      const res2 = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [
+          ...buildHistoryPayload(deliberations.slice(-2)),
+          { role: 'user', parts: [{ text: prompt }] },
+          { role: 'model', parts: [{ text: jimOutput }] },
+          { role: 'user', parts: [{ text: `Jim ha entregado su diagnóstico.${regimeContextText}\n\nContinúen con la ejecución en cascada: Axe y Taylor.` }] }
+        ],
+        config: { systemInstruction: getSystemInstructionForTask('actualizacion_phase2') }
+      });
+
+      const chainOutput = res2.text || "Error en Fase 2 (Chain).";
+      let fullText = jimOutput + "\n\n" + chainOutput;
+      
+      // --- AUTO-PARSE AXE SETUP (Update) ---
+      if (chainOutput.includes("AXE_DONE")) {
+         await parseAndSaveAxeSetup(fullText); // Use fullText to be safe
+      }
+
+      // --- PERSISTENCIA TAYLOR_SIZING (Update) ---
+      const taylorMatch = chainOutput.match(/```json\n([\s\S]*?)\n```/);
+      if (taylorMatch) {
+          try {
+              const taylorData = JSON.parse(taylorMatch[1]);
+              if (taylorData.TAYLOR_SIZING) {
+                  taylorData.TAYLOR_SIZING.capital_snapshot = parseFloat(balance);
+                  fetch('/api/taylor/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(taylorData)
+                  }).catch(e => console.error("Error persistiendo Taylor Sizing (Update)", e));
+              }
+          } catch (e) { console.error("Error parsing Taylor JSON update", e); }
+      }
+
+      // Early Exit post-processing
+      const upperText = fullText.toUpperCase();
+      const isChoppy = upperText.includes("CHOPPY") || upperText.includes("ILEGIBLE") || upperText.includes("FRICCIÓN") || upperText.includes("BLOQUEADA");
+      if (isChoppy) {
+        const cutIdx = fullText.indexOf("STATUS: JIM_DONE");
+        if (cutIdx !== -1) {
+          fullText = fullText.substring(0, cutIdx + "STATUS: JIM_DONE".length);
+        }
+        fullText += "\n\n⚠️ **[SISTEMA - EARLY EXIT]**: Jim detectó mercado inoperable. El resto del ciclo fue abortado.";
+      } else {
+        const taylorEval = evaluateTaylorRisk(fullText);
+        fullText += "\n\n" + taylorEval.message;
+      }
+
       const delibData = {
         taskId: 'actualizacion',
         input: `Update Request #${updateCount + 1}`,
-        output: text,
-        agents: ['core', 'jim', 'axe'],
+        output: fullText,
+        agents: ['core', 'jim', 'axe', 'wendy', 'wags', 'taylor'],
         status: 'COMPLETED'
       };
-
       await saveDeliberation(delibData);
-      registerUpdate(); // Increment counter
+      registerUpdate();
 
       const newDelib: Deliberation = {
         id: `update-${Date.now()}`,
         timestamp: Date.now(),
         input: delibData.input,
-        output: text,
+        output: fullText,
         status: "COMPLETED"
       };
       setDeliberations(prev => [...prev, newDelib]);
@@ -417,33 +711,67 @@ export default function App() {
       setApiError(`FALLO ACTUALIZACIÓN: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
   const handleGestionTrade = async (trade: TradeInput) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     setActiveTrade(trade);
     setIsTradeDialogOpen(false);
     setIsProcessing(true);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+      // ── FRESH SNAPSHOT: fetch live price from relay right now ──
+      let freshMarketData = marketData;
+      try {
+        const freshRes = await fetch('/api/status');
+        const freshJson = await freshRes.json();
+        if (freshJson?.parsed_data) {
+          // Merge: keep accumulated MGI_RTH/MACRO/NODES, overlay fresh PRICE
+          freshMarketData = { ...(marketData || {}), ...freshJson.parsed_data };
+          // Also deep-merge sub-objects so accumulated keys are not lost
+          for (const key in freshJson.parsed_data) {
+            if (typeof freshJson.parsed_data[key] === 'object' && freshJson.parsed_data[key] !== null) {
+              (freshMarketData as any)[key] = { ...((marketData as any)?.[key] || {}), ...freshJson.parsed_data[key] };
+            }
+          }
+          setMarketData(freshMarketData as MGIData);
+          console.log('🔄 Fresh relay snapshot for Gestión:', (freshMarketData as any)?.PRICE?.candle?.close);
+        }
+      } catch (fetchErr) {
+        console.warn('Could not refresh relay data, using cached marketData:', fetchErr);
+      }
+
       const prompt = buildGestionPrompt({
         trade,
-        marketData: marketData!,
+        marketData: freshMarketData!,
         balance: parseFloat(balance)
       });
 
       const res = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
+        contents: [
+          ...buildHistoryPayload(deliberations),
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
         config: { systemInstruction: getSystemInstructionForTask('gestionTrade') }
       });
+
+      const currentPrice = (freshMarketData as any)?.PRICE?.candle?.close || trade.entry_price;
+      const taylorRisk = evaluateActiveRisk(trade, currentPrice);
+
+      const finalOutput = res.text + "\n\n" + taylorRisk.message;
 
       const newDelib: Deliberation = {
         id: `gestion-${Date.now()}`,
         timestamp: Date.now(),
         input: `Gestión: ${trade.setup_name}`,
-        output: res.text || "Error en gestión.",
+        output: finalOutput,
         status: "ACTIVE_TRADE"
       };
       setDeliberations(prev => [...prev, newDelib]);
@@ -451,32 +779,67 @@ export default function App() {
       setApiError(`FALLO GESTIÓN: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
   const handleUpdateGestion = async () => {
-    if (!activeTrade) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    if (!activeTrade) {
+        isProcessingRef.current = false;
+        return;
+    }
     setIsProcessing(true);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+      // ── FRESH SNAPSHOT: fetch live price from relay right now ──
+      let freshMarketData = marketData;
+      try {
+        const freshRes = await fetch('/api/status');
+        const freshJson = await freshRes.json();
+        if (freshJson?.parsed_data) {
+          freshMarketData = { ...(marketData || {}), ...freshJson.parsed_data };
+          for (const key in freshJson.parsed_data) {
+            if (typeof freshJson.parsed_data[key] === 'object' && freshJson.parsed_data[key] !== null) {
+              (freshMarketData as any)[key] = { ...((marketData as any)?.[key] || {}), ...freshJson.parsed_data[key] };
+            }
+          }
+          setMarketData(freshMarketData as MGIData);
+          console.log('🔄 Fresh relay snapshot for UpdateGestión:', (freshMarketData as any)?.PRICE?.candle?.close);
+        }
+      } catch (fetchErr) {
+        console.warn('Could not refresh relay data, using cached marketData:', fetchErr);
+      }
+
       const prompt = buildGestionPrompt({
         trade: activeTrade,
-        marketData: marketData!,
+        marketData: freshMarketData!,
         balance: parseFloat(balance)
       });
 
       const res = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
+        contents: [
+          ...buildHistoryPayload(deliberations),
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
         config: { systemInstruction: getSystemInstructionForTask('gestionTrade') }
       });
+
+      const currentPrice = (freshMarketData as any)?.PRICE?.candle?.close || activeTrade.entry_price;
+      const taylorRisk = evaluateActiveRisk(activeTrade, currentPrice);
+
+      const finalOutput = res.text + "\n\n" + taylorRisk.message;
 
       const newDelib: Deliberation = {
         id: `gestion-update-${Date.now()}`,
         timestamp: Date.now(),
         input: `Actualización Trade: ${activeTrade.setup_name}`,
-        output: res.text || "Error en actualización de gestión.",
+        output: finalOutput,
         status: "ACTIVE_TRADE"
       };
       setDeliberations(prev => [...prev, newDelib]);
@@ -484,10 +847,14 @@ export default function App() {
       setApiError(`FALLO ACTUALIZACIÓN GESTIÓN: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
   const handleSaveTradeLog = async (logData: Omit<TradeLogInput, 'trade_id'>) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     setIsTradeLogOpen(false);
     setIsProcessing(true);
 
@@ -498,12 +865,46 @@ export default function App() {
 
       const res = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
+        contents: [
+          ...buildHistoryPayload(deliberations),
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
         config: { systemInstruction: getSystemInstructionForTask('tradeLog') }
       });
+      const text = res.text || "";
 
-      // Update balance
-      setBalance(prev => (parseFloat(prev) + logData.final_pnl).toString());
+      // Memoria Evolutiva: Extraer LECCIÓN en caso de pérdida
+      if (text.includes("LECCIÓN:")) {
+        const match = text.match(/LECCIÓN:(.*)/i);
+        const lessonStr = match ? match[1].trim() : "";
+        if (lessonStr) {
+          fetch('/api/lessons', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              regime: currentRegime,
+              setup_name: activeTrade?.setup_name || 'Desconocido',
+              rule_text: lessonStr
+            })
+          }).catch(err => console.error("Error guardando Lección:", err));
+        }
+      }
+      // Update balance (Convert Puntos to USD using MNQ standard $2.0 per point per contract)
+      const usdPnl = logData.puntos * (activeTrade?.contracts || 1) * 2.0;
+      setBalance(prev => (parseFloat(prev) + usdPnl).toString());
+
+      // Save to SQLite
+      await saveTradeLog({
+        ...fullLog,
+        setup_name: activeTrade?.setup_name,
+        direction: activeTrade?.direction,
+        contracts: activeTrade?.contracts,
+        entry_price: activeTrade?.entry_price,
+        stop_loss: activeTrade?.stop_loss,
+        tp1_price: activeTrade?.tp1_price,
+        tp2_price: activeTrade?.tp2_price,
+        ai_audit: res.text
+      }).catch(err => console.error("Failed to save trade log to SQLite", err));
 
       const newDelib: Deliberation = {
         id: `log-${Date.now()}`,
@@ -518,71 +919,154 @@ export default function App() {
       setApiError(`FALLO LOG: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
   const handleCierreDia = async () => {
-    if (!window.confirm("¿Desea cerrar la sesión del día? Esta acción limpiará el estado actual.")) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
 
+    setIsCierreDiaOpen(false);
     setIsProcessing(true);
     try {
+      // Obtener trades consolidados desde la Base de Datos SQLite para calcular el P&L
+      const tradesRes = await fetch('/api/trades');
+      const allTrades: any[] = await tradesRes.json();
+
+      // Filtrar a la sesión de hoy local
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayTrades = allTrades.filter(t => t.TradeDate === todayStr);
+      const totalPnl = todayTrades.reduce((acc, curr) => acc + (curr.Amount || 0), 0);
+      const totalContracts = todayTrades.reduce((acc, curr) => acc + (curr.Quantity || 0), 0);
+      const totalPoints = todayTrades.reduce((acc, curr) => acc + (curr.puntos || 0), 0);
+
+      // Consolidar interacción para la psicóloga
+      const interactiveHistory = deliberations
+        .filter(d => d.status === "INTERACTIVE" || d.status === "ACTIVE_TRADE")
+        .map(d => `> ${d.input}\n< ${d.output}`)
+        .join('\n\n');
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+      const tradesListStr = todayTrades.length > 0
+        ? todayTrades.map((t, i) => `Trade #${i + 1} [Setup: ${t.nombre_setup || 'N/A'}] | Riesgo: ${t.rs || 0}R | Puntos: ${t.puntos} | Dir: ${t.Buy_Sell} | Audit Wendy: ${t.wendy_notes}`).join('\\n')
+        : 'Ningún trade ejecutado hoy.';
+
+      // Extracción de métricas de régimen para auditoría
+      const jimOutputs = deliberations.filter(d => d.output.includes("REGIME_ANALYSIS"));
+      const lastJimOutput = jimOutputs.length > 0 ? jimOutputs[jimOutputs.length - 1].output : "";
+      const regimeMatch = lastJimOutput.match(/```json\n([\s\S]*?)\n```/);
+      let regimeActual = "AMBIGUOUS";
+      let nivelExposicion = 1;
+      if (regimeMatch) {
+        try {
+          const rData = JSON.parse(regimeMatch[1]);
+          const analysis = rData.REGIME_ANALYSIS || {};
+          regimeActual = `${analysis.contexto_ib || 'AMBIGUOUS'} ${analysis.regime_confidence_score || 'LOW'} ${analysis.sesgo_direccional || 'NEUTRAL'}`;
+          nivelExposicion = analysis.nivel_exposicion || 1;
+        } catch(e) {}
+      }
+
+      const axeSetupsCount = deliberations.filter(d => 
+        d.output.includes("AXE") && 
+        (d.output.includes("SETUP") || d.output.includes("ENTRY")) && 
+        !d.output.includes("EARLY EXIT")
+      ).length;
+
       const prompt = buildCierreDiaPrompt({
         balance: parseFloat(balance),
-        tradeCount: deliberations.filter(d => d.id.startsWith('log-')).length
+        tradeCount: todayTrades.length,
+        pnl: totalPnl,
+        contracts: totalContracts,
+        points: totalPoints,
+        tradesList: tradesListStr,
+        comments: interactiveHistory || 'Ninguna interacción conversacional detectada hoy.',
+        regimeActual,
+        nivelExposicion,
+        axeSetupsCount
       });
 
       const res = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: { systemInstruction: getSystemInstructionForTask('cierreDia') }
       });
+
+      const wagsText = res.text || "";
+      const wagsMatch = wagsText.match(/```json\n([\s\S]*?)\n```/);
+      if (wagsMatch) {
+          try {
+              const wagsData = JSON.parse(wagsMatch[1]);
+              if (wagsData.WAGS_AUDIT) {
+                  fetch('/api/wags/audit', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(wagsData)
+                  }).catch(e => console.error("Error persistiendo Auditoría Wags", e));
+
+                  if (wagsData.WAGS_AUDIT.leccion_del_dia) {
+                      const rParts = wagsData.WAGS_AUDIT.regime_actual.split(' ');
+                      fetch('/api/lessons', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              ib_regime: rParts[0] || 'AMBIGUOUS',
+                              ib_confidence: rParts[1] || 'LOW',
+                              ib_direction: rParts[2] || 'NEUTRAL',
+                              outcome: wagsData.WAGS_AUDIT.resultado_pnl < 0 ? 'LOSS' : 'WIN',
+                              setup_name: 'DAILY_AUDIT_LESSON',
+                              rule_text: wagsData.WAGS_AUDIT.leccion_del_dia
+                          })
+                      }).catch(e => console.error("Error auto-guardando leccion Wags", e));
+                  }
+              }
+          } catch (e) { console.error("Error parsing Wags Audit JSON", e); }
+      }
 
       const newDelib: Deliberation = {
         id: `cierre-${Date.now()}`,
         timestamp: Date.now(),
         input: "CIERRE DE DÍA",
-        output: res.text || "Error en cierre.",
+        output: wagsText,
         status: "CLOSED"
       };
       setDeliberations(prev => [...prev, newDelib]);
-
-      // Cleanup session state after delay
-      setTimeout(() => {
-        setMarketData(null);
-        setPhase('IDLE');
-        setMgiDashboard("");
-        setCompletedTasks(new Set());
-        setAutoTriggeredTasks(new Set());
-      }, 5000);
-
     } catch (err: any) {
       setApiError(`FALLO CIERRE: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
-  const handleAgentChat = async () => {
-    if (!chatInput.trim()) return;
-    const query = chatInput;
-    setChatInput(""); // Clear immediately for UX
+  const handleAgentChat = async (message: string) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    if (!message.trim()) {
+        isProcessingRef.current = false;
+        return;
+    }
     setIsProcessing(true);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = buildChatPrompt(query, marketData, parseFloat(balance), activeTrade);
+      const prompt = buildChatPrompt(message, marketData, parseFloat(balance), activeTrade);
 
       const res = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
-        contents: prompt,
+        contents: [
+          ...buildHistoryPayload(deliberations),
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
         config: { systemInstruction: getSystemInstructionForTask('chat') }
       });
 
       const newDelib: Deliberation = {
         id: `chat-${Date.now()}`,
         timestamp: Date.now(),
-        input: query,
+        input: message,
         output: res.text || "Sin respuesta.",
         status: "INTERACTIVE"
       };
@@ -591,6 +1075,7 @@ export default function App() {
       setApiError(`FALLO CHAT: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
@@ -619,12 +1104,43 @@ export default function App() {
 
 
 
+  // ── PLAYGROUND MODE ──
+  const isPlayground = new URLSearchParams(window.location.search).get('playground') === 'sidebar';
+
+  const sidebarProps = {
+    balance, setBalance, drawdownMax, setDrawdownMax,
+    marginPerContract, setMarginPerContract,
+    isProcessing, apiError, onOpenKeyDialog: openKeyDialog,
+    relayStatus, marketData,
+    onExportSession: exportSessionToMarkdown,
+    hasData: deliberations.length > 0,
+    historyItems, onSelectHistoryItem: (item: Deliberation) => setDeliberations([item]),
+    onNewChat: () => { setDeliberations([]); setPhase('IDLE'); }
+  };
+
+  if (isPlayground) {
+    return (
+      <div className="h-screen bg-[#050810] flex overflow-hidden">
+        <div className="flex items-start gap-6 p-6 w-full overflow-auto">
+          <div className="flex-shrink-0">
+            <p className="text-[9px] font-mono uppercase tracking-widest text-zinc-600 mb-2">v1 — Current</p>
+            <Sidebar {...sidebarProps} />
+          </div>
+          <div className="flex-shrink-0">
+            <p className="text-[9px] font-mono uppercase tracking-widest text-zinc-600 mb-2">v2 — Glass Console</p>
+            <SidebarV2 {...sidebarProps} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-operator-bg text-operator-text font-sans flex flex-col overflow-hidden">
 
       <div className="flex flex-1 overflow-hidden">
 
-        <Sidebar
+        <SidebarV2
           balance={balance}
           setBalance={setBalance}
           drawdownMax={drawdownMax}
@@ -666,37 +1182,56 @@ export default function App() {
           currentTradeName={activeTrade?.setup_name}
         />
 
-        <main className="flex-1 min-w-0 flex flex-col bg-operator-bg relative">
+        <CierreDiaDialog
+          isOpen={isCierreDiaOpen}
+          onClose={() => setIsCierreDiaOpen(false)}
+          onSubmit={handleCierreDia}
+        />
 
-          {/* TOP BAR: RELAY STATUS */}
-          <div className="h-10 border-b border-operator-border bg-operator-card/50 flex items-center justify-between px-6 flex-shrink-0 z-10 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold text-operator-text uppercase tracking-widest">Feed Central</span>
-              <div className="h-3 w-px bg-operator-border" />
-              <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-none ${relayStatus === 'CONNECTED' ? 'bg-emerald-500' : relayStatus === 'WAITING' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'}`} />
-                <span className={`text-[9px] font-mono uppercase tracking-widest ${relayStatus === 'CONNECTED' ? 'text-emerald-500' : relayStatus === 'WAITING' ? 'text-amber-500' : 'text-rose-500'}`}>
-                  {relayStatus === 'CONNECTED' ? 'MGI RELAY ACTIVE' : relayStatus === 'WAITING' ? 'WAITING SIGNAL...' : 'RELAY OFFLINE'}
-                </span>
-              </div>
+        <main className="flex-1 min-w-0 flex flex-col bg-[#050810] relative">
+          {/* TOP BAR: CYBER HUD MONITOR (ALIGNED LEFT) */}
+          <div className="h-20 border-b border-white/5 bg-[#0a0f1c]/90 flex items-center gap-8 px-8 flex-shrink-0 z-50 backdrop-blur-3xl shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            {/* IZQUIERDA: Precio en Vivo (Cyber HUD style) */}
+            <div className="flex items-center gap-4 bg-black/40 backdrop-blur-xl border border-white/5 px-6 py-4 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.4)]">
+              <span className="text-xs font-black text-cyan-500/50 tracking-[0.3em] uppercase"
+                 style={{ fontFamily: "'Oxanium', cursive" }}>MNQ</span>
+              <span className={`text-2xl font-black transition-all duration-300 tabular-nums tracking-tighter ${
+                activeSetup?.status === 'TRIGGERED'
+                  ? priceDirection === 'up' 
+                    ? 'text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.7)]' 
+                    : 'text-rose-400 drop-shadow-[0_0_15px_rgba(244,63,94,0.7)]'
+                  : 'text-white/40'
+              }`}
+                style={{ fontFamily: "'Oxanium', cursive" }}>
+                {marketData?.PRICE?.candle?.close 
+                  ? `${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(marketData.PRICE.candle.close)} ${activeSetup?.status === 'TRIGGERED' ? (priceDirection === 'up' ? '▲' : '▼') : ''}`
+                  : '---.--'}
+              </span>
+            </div>
+
+            {/* IZQUIERDA ADYACENTE: Active Setup */}
+            <div className="flex items-center">
+              <ActiveSetupBadge setup={activeSetup} />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar space-y-16 min-w-0 w-full relative">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 custom-scrollbar space-y-12 w-0 min-w-full relative">
             {phase === 'IDLE' && deliberations.length === 0 && !isProcessing && (
-              <div className="h-full flex flex-col items-center justify-center opacity-40 text-center space-y-4">
-                <BarChart3 size={32} className="text-operator-muted mb-2" />
+              <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-6">
+                <div className="w-16 h-16 rounded-full border border-cyan-500/20 flex items-center justify-center animate-pulse">
+                  <BarChart3 size={32} className="text-cyan-500/50" />
+                </div>
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-[0.5em] text-operator-muted">SISTEMA LISTO</h2>
-                  <p className="text-[10px] font-mono uppercase tracking-widest mt-2">{relayStatus === 'CONNECTED' ? 'Enlace MGI Estable' : 'Esperando Enlace MGI...'}</p>
+                  <h2 className="text-xs font-black uppercase tracking-[0.5em] text-cyan-500/40" style={{ fontFamily: "'Oxanium', cursive" }}>SISTEMA_STANDBY</h2>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-zinc-600 mt-2">{relayStatus === 'CONNECTED' ? 'LINK_ESTABLISHED' : 'AWAITING_RELAY_LINK'}</p>
                 </div>
               </div>
             )}
 
             {isProcessing && phase === 'IDLE' && (
               <div className="h-full flex flex-col items-center justify-center space-y-4">
-                <RefreshCw className="animate-spin text-sieben" size={24} />
-                <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-operator-muted">Analizando Estructura...</span>
+                <RefreshCw className="animate-spin text-cyan-400" size={24} />
+                <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-cyan-400/50">Computing_Tactical_Analysis</span>
               </div>
             )}
 
@@ -720,31 +1255,11 @@ export default function App() {
             )}
           </div>
 
-          <div className="p-4 border-t border-operator-border bg-operator-bg flex-shrink-0">
-            <div className="max-w-4xl mx-auto flex items-center gap-3">
-              <div className="flex-1 relative group">
-                <input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAgentChat()}
-                  placeholder="Interactuar con la IA (Comandos / Preguntas)..."
-                  className="w-full bg-operator-card border border-operator-border rounded-md py-3 px-4 text-[11px] font-mono text-operator-text focus:outline-none focus:border-sieben transition-all"
-                />
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-                  <span className="text-[8px] text-operator-muted font-bold uppercase tracking-widest group-focus-within:text-sieben">ENTER TO SEND</span>
-                </div>
-              </div>
-              <button
-                onClick={handleAgentChat}
-                disabled={!chatInput.trim() || isProcessing}
-                className="bg-operator-card hover:bg-sieben hover:text-white hover:border-sieben border border-operator-border disabled:opacity-50 disabled:grayscale p-3 rounded-md text-operator-muted transition-all flex-shrink-0 shadow-none"
-              >
-                <RefreshCw size={14} className={isProcessing ? 'animate-spin text-sieben' : ''} />
-              </button>
-            </div>
-            <div className="mt-2 flex justify-center">
-              <p className="text-[8px] text-operator-muted font-mono uppercase tracking-[0.2em] font-bold">
-                SIEBEN LINK: {relayStatus} | BALANCE: ${balance} USD
+          <div className="flex flex-col flex-shrink-0 relative">
+            <ChatBar onSend={handleAgentChat} isProcessing={isProcessing} />
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
+              <p className="text-[7px] text-white/5 font-mono uppercase tracking-[0.4em] font-black">
+                SIEBEN_CORE_ACTIVE // {new Date().getFullYear()}
               </p>
             </div>
           </div>
@@ -757,7 +1272,7 @@ export default function App() {
           launchUpdate={handleUpdateAnalysis}
           launchGestion={() => !activeTrade ? setIsTradeDialogOpen(true) : handleUpdateGestion()}
           launchTradeLog={() => setIsTradeLogOpen(true)}
-          launchCierreDia={handleCierreDia}
+          launchCierreDia={() => setIsCierreDiaOpen(true)}
           isProcessing={isProcessing}
           completedTasks={completedTasks}
           isTradeActive={!!activeTrade}

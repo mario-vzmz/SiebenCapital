@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trader Discipline Companion - Phase 1</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            'sieben': {
+              DEFAULT: '#7C5CFF',
+              light: '#A08DFF',
+              dark: '#5836DB'
+            },
+            'operator': {
+              bg: '#0A0A0A',
+              card: '#121212',
+              border: '#2A2A2A',
+              text: '#E5E5E5',
+              muted: '#737373'
+            }
+          },
+          animation: {
+            'copilot-up': 'copilot-up 150ms ease-out forwards',
+          },
+          keyframes: {
+            'copilot-up': {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Oxanium:wght@500;700;800&display=swap');
+
+    :root {
+      --font-sans: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: #0A0A0A;
+      margin: 0;
+      color: #E5E5E5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Minimal Scrollbar for Brutalist Design */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #2A2A2A;
+      border-radius: 0px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #7C5CFF;
+    }
+
+    /* Base components removal of default focus rings for operator ui */
+    *:focus-visible {
+      outline: 1px solid #7C5CFF;
+      outline-offset: -1px;
+    }
+  </style>
+</head>
+
+<body class="dark bg-operator-bg text-operator-text">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

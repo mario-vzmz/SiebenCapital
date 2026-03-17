@@ -13,12 +13,12 @@ Mantener al trader sujeto a un proceso analítico estricto y elocuente dictado p
 - ✓ [REQ-02] Separar a Taylor en modos: EJECUCION vs ACTUALIZACION
 - ✓ [REQ-03] Eliminar tablas repetitivas en los reportes markdown
 
-### Phase 2: Gestión Activa y Automatización Horaria (Current)
-* **Goal**: Lograr que el sistema reaccione orgánicamente a eventos de mercado y sea capaz de auditar un trade en curso.
-- [ ] [REQ-04] Automatización Horaria: Disparar flujos fijos a las 08:30 y 09:30 EST.
-- [ ] [REQ-05] Auditoría de Trade Activo: Input del Frontend (`activeTrade=true`) altera el prompt de Axe y Taylor.
+### Phase 2: Gestión Activa (Completado)
+* **Goal**: Lograr que el sistema sea capaz de auditar un trade en curso.
+- ✓ [REQ-05] Auditoría de Trade Activo: Input del Frontend (`activeTrade=true`) altera el prompt de Axe y Taylor.
+- ✓ [REQ-05b] Contexto Dalton Inyectado: Automatización de `calculateOpeningContext`.
 
-### Phase 3: Dashboard Ejecutivo
+### Phase 3: Dashboard Ejecutivo (Completado)
 * **Goal**: Cierre de sesión y métricas de desempeño narradas por Wags.
-- [ ] [REQ-06] Resumen de Shutdown: Wags y Wendy evalúan el P&L y la psique del trader al final del día.
-- [ ] [REQ-07] Persistencia de Trade Logs en base de datos local SQLite.
+- ✓ [REQ-06] Resumen de Shutdown: Wags y Wendy evalúan el P&L y la psique del trader al final del día.
+- ✓ [REQ-07] Persistencia de Trade Logs en base de datos local SQLite.

@@ -1,0 +1,21 @@
+# Python and Environments
+venv/
+__pycache__/
+*.pyc
+
+# Data and Databases (Private)
+data/
+*.db
+*.log
+relay.log
+
+# Tools and Temp
+ngrok
+tail_output.txt
+
+# Web
+node_modules
+dist
+.env.local
+.DS_Store
+.vscode

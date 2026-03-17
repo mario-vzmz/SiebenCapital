@@ -8,8 +8,10 @@ export interface DeliberationPayload {
     status: string;
 }
 
+import { apiUrl } from '../utils/api';
+
 export async function saveDeliberation(payload: DeliberationPayload): Promise<{ status: string; message: string }> {
-    const res = await fetch('/api/deliberations', {
+    const res = await fetch(apiUrl('/api/deliberations'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -24,8 +26,8 @@ export async function saveDeliberation(payload: DeliberationPayload): Promise<{ 
 
 export async function getDeliberations(taskId?: string): Promise<DeliberationPayload[]> {
     const url = taskId
-        ? `/api/deliberations?taskId=${taskId}`
-        : '/api/deliberations';
+        ? apiUrl(`/api/deliberations?taskId=${taskId}`)
+        : apiUrl('/api/deliberations');
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -35,7 +37,7 @@ export async function getDeliberations(taskId?: string): Promise<DeliberationPay
 }
 
 export async function saveTradeLog(tradeData: any): Promise<{ status: string; message: string }> {
-    const res = await fetch('/api/trades', {
+    const res = await fetch(apiUrl('/api/trades'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

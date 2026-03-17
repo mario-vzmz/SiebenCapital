@@ -1,4 +1,5 @@
 import { SYSTEM_INSTRUCTIONS, SystemInstructions } from '../systemInstructions';
+import { apiUrl } from './api';
 import { UserInputs } from '../../types';
 import { getLatestVWAPPrice, getPreMarketData, getVWAPRange } from '../services/marketDataService';
 import { calculateOpeningContext } from './openingAnalysis';
@@ -186,7 +187,7 @@ export const buildAperturaPrompt = async (inputs: { marketData: any, balance: nu
         const confidence = ib.IB_CONFIDENCE || 'LOW';
         const direction = ib.IB_DIRECTION || 'NEUTRAL';
         
-        const res = await fetch(`/api/regime_context?regime=${regime}&confidence=${confidence}&direction=${direction}`);
+        const res = await fetch(apiUrl(`/api/regime_context?regime=${regime}&confidence=${confidence}&direction=${direction}`));
         if (res.ok) {
             const context = await res.json();
             if (context.lessons_count > 0) {
@@ -308,7 +309,7 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
         const confidence = ib.IB_CONFIDENCE || 'LOW';
         const direction = ib.IB_DIRECTION || 'NEUTRAL';
         
-        const res = await fetch(`/api/regime_context?regime=${regime}&confidence=${confidence}&direction=${direction}`);
+        const res = await fetch(apiUrl(`/api/regime_context?regime=${regime}&confidence=${confidence}&direction=${direction}`));
         if (res.ok) {
             const context = await res.json();
             if (context.lessons_count > 0) {

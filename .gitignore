@@ -16,6 +16,7 @@ tail_output.txt
 # Web
 node_modules
 dist
+.env
 .env.local
 .DS_Store
 .vscode

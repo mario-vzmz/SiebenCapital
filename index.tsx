@@ -9,6 +9,7 @@ import {
 
 // Tipos
 import { MGIData, Deliberation, TradeInput, TradeLogInput, ActiveSetup } from './types';
+import { apiUrl } from './src/utils/api';
 
 // Componentes
 import { Sidebar } from './components/Sidebar';
@@ -84,7 +85,7 @@ async function parseAndSaveAxeSetup(axeOutput: string) {
   };
 
   try {
-    await fetch('/api/active_setup', {
+    await fetch(apiUrl('/api/active_setup'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(setup)
@@ -251,7 +252,7 @@ export default function App() {
     // A-01: Hidratación inicial de datos MGI (VAH, VAL, POC, ATR)
     const fetchInitialMgi = async () => {
       try {
-        const response = await fetch('/api/marketdata/pre-market');
+        const response = await fetch(apiUrl('/api/marketdata/pre-market'));
         const data = await response.json();
         if (data && !data.error && !data.message) {
           console.log("🏢 Initial MGI Hydration:", data);
@@ -327,7 +328,7 @@ export default function App() {
     const interval = setInterval(async () => {
       // 1. Fetch Market Data Polling
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch(apiUrl('/api/status'));
         const data = await response.json();
 
         if (data) {
@@ -347,7 +348,7 @@ export default function App() {
 
       // 2. Fetch Active Setup Polling
       try {
-        const setupRes = await fetch('/api/active_setup');
+        const setupRes = await fetch(apiUrl('/api/active_setup'));
         const setupData = await setupRes.json();
         setActiveSetup(setupData);
       } catch (e) {
@@ -537,7 +538,7 @@ export default function App() {
               if (taylorData.TAYLOR_SIZING) {
                   // Agregar capital snapshot vivo
                   taylorData.TAYLOR_SIZING.capital_snapshot = parseFloat(balance);
-                  fetch('/api/taylor/sessions', {
+                  fetch(apiUrl('/api/taylor/sessions'), {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(taylorData)
@@ -667,7 +668,7 @@ export default function App() {
               const taylorData = JSON.parse(taylorMatch[1]);
               if (taylorData.TAYLOR_SIZING) {
                   taylorData.TAYLOR_SIZING.capital_snapshot = parseFloat(balance);
-                  fetch('/api/taylor/sessions', {
+                  fetch(apiUrl('/api/taylor/sessions'), {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(taylorData)
@@ -730,7 +731,7 @@ export default function App() {
       // ── FRESH SNAPSHOT: fetch live price from relay right now ──
       let freshMarketData = marketData;
       try {
-        const freshRes = await fetch('/api/status');
+        const freshRes = await fetch(apiUrl('/api/status'));
         const freshJson = await freshRes.json();
         if (freshJson?.parsed_data) {
           // Merge: keep accumulated MGI_RTH/MACRO/NODES, overlay fresh PRICE
@@ -800,7 +801,7 @@ export default function App() {
       // ── FRESH SNAPSHOT: fetch live price from relay right now ──
       let freshMarketData = marketData;
       try {
-        const freshRes = await fetch('/api/status');
+        const freshRes = await fetch(apiUrl('/api/status'));
         const freshJson = await freshRes.json();
         if (freshJson?.parsed_data) {
           freshMarketData = { ...(marketData || {}), ...freshJson.parsed_data };
@@ -879,7 +880,7 @@ export default function App() {
         const match = text.match(/LECCIÓN:(.*)/i);
         const lessonStr = match ? match[1].trim() : "";
         if (lessonStr) {
-          fetch('/api/lessons', {
+          fetch(apiUrl('/api/lessons'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -932,7 +933,7 @@ export default function App() {
     setIsProcessing(true);
     try {
       // Obtener trades consolidados desde la Base de Datos SQLite para calcular el P&L
-      const tradesRes = await fetch('/api/trades');
+      const tradesRes = await fetch(apiUrl('/api/trades'));
       const allTrades: any[] = await tradesRes.json();
 
       // Filtrar a la sesión de hoy local
@@ -1000,7 +1001,7 @@ export default function App() {
           try {
               const wagsData = JSON.parse(wagsMatch[1]);
               if (wagsData.WAGS_AUDIT) {
-                  fetch('/api/wags/audit', {
+                  fetch(apiUrl('/api/wags/audit'), {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(wagsData)
@@ -1008,7 +1009,7 @@ export default function App() {
 
                   if (wagsData.WAGS_AUDIT.leccion_del_dia) {
                       const rParts = wagsData.WAGS_AUDIT.regime_actual.split(' ');
-                      fetch('/api/lessons', {
+                      fetch(apiUrl('/api/lessons'), {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({

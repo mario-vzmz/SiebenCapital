@@ -162,8 +162,11 @@ export const buildAperturaPrompt = async (inputs: { marketData: any, balance: nu
     const startIso = `${dateStr}T07:30:00`;
     const endIso = `${dateStr}T07:55:00`;
 
-    const rawVwaps = await getVWAPRange(startIso, endIso);
-    const mgi = formatNumbers(inputs.marketData || await getPreMarketData());
+    const rawVwaps = await getVWAPRange(startIso, endIso).catch(() => []);
+    let mgi = formatNumbers(inputs.marketData);
+    if (!mgi || Object.keys(mgi).length === 0) {
+        try { mgi = formatNumbers(await getPreMarketData()); } catch { /* sin datos pre-market, continuar */ }
+    }
 
     // Construir el string del array de velas
     const vwapLog = rawVwaps.map(v => {
@@ -270,8 +273,11 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
     const startIso = `${dateStr}T07:30:00`;
     const endIso = `${dateStr}T${timeStr}`;
 
-    const rawVwaps = await getVWAPRange(startIso, endIso);
-    const mgi = formatNumbers(inputs.marketData || await getPreMarketData());
+    const rawVwaps = await getVWAPRange(startIso, endIso).catch(() => []);
+    let mgi = formatNumbers(inputs.marketData);
+    if (!mgi || Object.keys(mgi).length === 0) {
+        try { mgi = formatNumbers(await getPreMarketData()); } catch { /* sin datos pre-market, continuar */ }
+    }
 
     // Construir el string del array de velas, recortando solo a las últimas 30 (mitigando 'Lost in the middle')
     const recentVwaps = rawVwaps.slice(-30);

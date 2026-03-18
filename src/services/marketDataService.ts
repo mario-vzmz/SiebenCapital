@@ -1,4 +1,5 @@
 import { MGIData } from '../../types';
+import { apiUrl } from '../utils/api';
 
 export interface VWAPPrice {
     timestamp: string;
@@ -71,7 +72,7 @@ export interface MGIPremarket {
 }
 
 export async function getLatestVWAPPrice(): Promise<VWAPPrice> {
-    const res = await fetch('/api/marketdata/latest-vwap');
+    const res = await fetch(apiUrl('/api/marketdata/latest-vwap'));
     if (!res.ok) {
         throw new Error(`Error fetching latest VWAP: ${res.statusText}`);
     }
@@ -79,7 +80,7 @@ export async function getLatestVWAPPrice(): Promise<VWAPPrice> {
 }
 
 export async function getPreMarketData(): Promise<MGIPremarket> {
-    const res = await fetch('/api/marketdata/pre-market');
+    const res = await fetch(apiUrl('/api/marketdata/pre-market'));
     if (!res.ok) {
         throw new Error(`Error fetching pre-market data: ${res.statusText}`);
     }
@@ -87,7 +88,7 @@ export async function getPreMarketData(): Promise<MGIPremarket> {
 }
 
 export async function getVWAPRange(startIso: string, endIso: string): Promise<VWAPPrice[]> {
-    const res = await fetch(`/api/marketdata/range?start=${startIso}&end=${endIso}`);
+    const res = await fetch(apiUrl(`/api/marketdata/range?start=${startIso}&end=${endIso}`));
     if (!res.ok) {
         throw new Error(`Error fetching VWAP range: ${res.statusText}`);
     }

@@ -190,6 +190,7 @@ const JIM_ACTUALIZACION = JIM_BASE + `
 2. SKILL ACTIVO: Microstructure & Price Action Telemetry (Intradía).
 Misión: Leer divergencias de delta, absorción y agotamiento en zonas de Balance/Trend.
 - DEBER PRINCIPAL: Debes definir OBLIGATORIAMENTE entre 1 y 3 "Zonas de Interés (POIs)" estáticas para la sesión basadas en concentraciones de volumen (Ej. Y_POC, VWAP_RTH_1SD_UP, ONL). Estas serán las únicas áreas donde Axe tendrá permitido buscar operaciones.
+- REGLA DE ANCLA DE SESGO: Si en la sesión de hoy ya existe un IB_REGIME y IB_DIRECTION clasificados en la Apertura, ese sesgo es PERMANENTE durante toda la sesión RTH. No puedes cambiar el sesgo direccional basándote en movimientos de precio intradía. Si el IB fue BEARISH, el día es BEARISH hasta el cierre. Solo puedes ajustar los POIs, nunca el sesgo.
 
 REGLAS DE CONTEXTO HORARIO (TIME AWARENESS):
 - Si ves en la telemetría la etiqueta "[!!! ALERTA DE SISTEMA: APERTURA MACRO PRE-MERCADO (08:30 EST) !!!]", tu análisis debe enfocarse en la agresión para romper los rangos overnight.
@@ -358,7 +359,8 @@ const AXE_BASE = `
 ### 🧠 Motor Lógico (Resumen de 3 bullets)
 [TABLA MARKDOWN]
 
-- REGLA DE OBEDIENCIA CIEGA: LAS SIGUIENTES REGLAS DE CANCELACIÓN SON ÓRDENES. SI SE CUMPLE UNA CONDICIÓN DE CANCELACIÓN, TIENES PROHIBIDO PUBLICAR UN SETUP VÁLIDO. 
+- REGLA DE OBEDIENCIA CIEGA: LAS SIGUIENTES REGLAS DE CANCELACIÓN SON ÓRDENES. SI SE CUMPLE UNA CONDICIÓN DE CANCELACIÓN, TIENES PROHIBIDO PUBLICAR UN SETUP VÁLIDO.
+- REGLA DE PROXIMIDAD: Todos los setups deben estar dentro de 50 puntos del precio actual. Si el POI está a más de 50 puntos del precio actual, descartar ese setup y buscar uno más cercano. Nunca proponer un setup a 100+ puntos del precio actual.
 [CRITICAL: PROTOCOLO DE CANCELACIÓN INMEDIATA]
 SI UN SETUP ES CANCELADO POR VOLUMEN (GAP 1) O POR EXCESO DE SL (GAP 5):
 1. NO INTENTES "AJUSTAR" EL SL PARA QUE QUEPA. SI EL NIVEL TÉCNICO + BUFFER > LÍMITE -> CANCELAR.
@@ -467,8 +469,9 @@ const AXE_ACTUALIZACION = AXE_BASE + `
 Misión: Plantear TRAMPAS en niveles estáticos basados en el Motor de 3 Pasos.
 
 [CRITICAL: REGLA DE CUMPLIMIENTO]
-SI LOS FILTROS DE VOLUMEN (GAP 1) O SL (GAP 5) DEL BLOQUE BASE DICTAN "CANCELAR", TIENES PROHIBIDO SUGERIR EL SETUP. 
+SI LOS FILTROS DE VOLUMEN (GAP 1) O SL (GAP 5) DEL BLOQUE BASE DICTAN "CANCELAR", TIENES PROHIBIDO SUGERIR EL SETUP.
 EN SU LUGAR, LA TABLA DEBE DECIR: | SIN SETUPS VÁLIDOS (RAZÓN) | --- | --- | --- | --- | --- | --- |
+- REGLA DE DIRECCIÓN ÚNICA: En una actualización estructural solo puedes proponer setups en UNA dirección — la que dictamine el sesgo_direccional del REGIME_ANALYSIS activo. Si el sesgo es BEARISH, solo SHORT. Si es BULLISH, solo LONG. Si es NEUTRAL, puedes proponer ambos pero máximo 1 de cada tipo.
 
 MOTOR LÓGICO DE 3 PASOS (DEBES AUDITAR ESTO ANTES DE SUGERIR UN TRADE):
 - Paso 1 (Filtro Direccional): Cruza el Tipo de Día de Jim con la posición del VWAP. Veta la emboscada si hay conflicto direccional inmenso. Pide paciencia.

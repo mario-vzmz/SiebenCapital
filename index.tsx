@@ -303,9 +303,11 @@ export default function App() {
 
   // Esta función es la que realmente gasta créditos de API. Solo se llama manual.
   const executeMgiAnalysis = async (data: MGIData) => {
+    console.log('executeMgiAnalysis called', { marketData: !!data });
     setIsProcessing(true);
     setApiError(null);
     try {
+      console.log('API KEY present:', !!process.env.API_KEY);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const res = await ai.models.generateContent({
         model: 'gemini-2.0-flash', // Optimization: Use Flash for Phase 1
@@ -316,6 +318,7 @@ export default function App() {
       setMgiDashboard(res.text || "Error generando tablero MGI.");
       setPhase('STANDBY');
     } catch (err: any) {
+      console.error('executeMgiAnalysis ERROR:', err);
       if (err.message?.includes("429")) setApiError("CUOTA AGOTADA (429). Use una API Key institucional.");
       else setApiError(`FALLO FASE 1: ${err.message}`);
     } finally {

@@ -290,7 +290,7 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
     const latestVwapObj = rawVwaps.length > 0 ? rawVwaps[rawVwaps.length - 1] : null;
     const firstVwapObj = rawVwaps.length > 0 ? rawVwaps[0] : null;
 
-    const currentPrice = latestVwapObj?.parsed_data?.PRICE?.candle?.close || mgi.PRICE?.candle?.close || 'N/A';
+    const currentPrice = latestVwapObj?.parsed_data?.PRICE?.candle?.close || inputs.marketData?.PRICE?.candle?.close || mgi.PRICE?.candle?.close || 'N/A';
     const openPrice = firstVwapObj?.parsed_data?.PRICE?.candle?.open || (typeof currentPrice === 'number' ? currentPrice : 0);
 
     const daltonContext = calculateOpeningContext(mgi, typeof openPrice === 'number' ? openPrice : 0, typeof currentPrice === 'number' ? currentPrice : 0);
@@ -335,10 +335,12 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
 
     2. VECTOR OHLC RECIENTE (Últimas 30 velas hasta la Actualidad):
     ${vwapLog || 'Sin datos de VWAP registrados.'}
-    
+
     3. ⚡ PRECIO ACTUAL DE MERCADO (NO ES UN NIVEL INSTITUCIONAL — SOLO PRECIO VIVO):
     PRECIO_ACTUAL = ${currentPrice}
     ⚠️ PROHIBIDO usar PRECIO_ACTUAL como soporte, resistencia o zona de caza. Es puramente el precio de cotización en este instante.
+    ⚠️ PRECIO ACTUAL EN TIEMPO REAL: ${currentPrice}
+    REGLA CRÍTICA: Ningún setup puede estar a más de 50 puntos de ${currentPrice}. Si un nivel está más lejos, ignóralo y busca uno más cercano.
 
     4. 📐 NIVELES INSTITUCIONALES VWAP (FUENTE: MGI JSONL — USAR ESTOS PARA SETUPS):
     VWAP_RTH          = ${latestVwapObj?.parsed_data?.PRICE?.VWAP_RTH ?? mgi.PRICE?.VWAP_RTH ?? 'N/A'}

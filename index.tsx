@@ -623,15 +623,15 @@ export default function App() {
       const res1 = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: [
-          // Use a smaller history window for updates to break long output patterns
-          ...buildHistoryPayload(deliberations.slice(-2)),
+          // Filter out deliberations with repeated AXE_DONE (contaminated context)
+          ...buildHistoryPayload(deliberations.filter(d => (d.output?.match(/STATUS: AXE_DONE/g) || []).length <= 2).slice(-2)),
           { role: 'user', parts: [{ text: prompt + "\n\nIMPORTANTE: Jim, sigue ESTRICTAMENTE el formato de MÁXIMO 3 BULLETS CORTOS para este reporte estructural." }] }
         ],
         config: { systemInstruction: getSystemInstructionForTask('actualizacion_phase1') }
       });
 
       const jimOutput = res1.text || "Error en Fase 1 (Jim).";
-      
+
       // Parsear REGIME_ANALYSIS
       let regimeContextText = "";
       const regimeMatch = jimOutput.match(/```json\n([\s\S]*?)\n```/);
@@ -648,7 +648,7 @@ export default function App() {
       const res2 = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: [
-          ...buildHistoryPayload(deliberations.slice(-2)),
+          ...buildHistoryPayload(deliberations.filter(d => (d.output?.match(/STATUS: AXE_DONE/g) || []).length <= 2).slice(-2)),
           { role: 'user', parts: [{ text: prompt }] },
           { role: 'model', parts: [{ text: jimOutput }] },
           { role: 'user', parts: [{ text: `Jim ha entregado su diagnóstico.${regimeContextText}\n\nContinúen con la ejecución en cascada: Axe y Taylor.` }] }

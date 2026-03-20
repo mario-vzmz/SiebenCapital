@@ -290,10 +290,18 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
     const latestVwapObj = rawVwaps.length > 0 ? rawVwaps[rawVwaps.length - 1] : null;
     const firstVwapObj = rawVwaps.length > 0 ? rawVwaps[0] : null;
 
-    const currentPrice = latestVwapObj?.parsed_data?.PRICE?.candle?.close || inputs.marketData?.PRICE?.candle?.close || mgi.PRICE?.candle?.close || 'N/A';
-    const openPrice = firstVwapObj?.parsed_data?.PRICE?.candle?.open || (typeof currentPrice === 'number' ? currentPrice : 0);
+    const rawPrice = latestVwapObj?.parsed_data?.PRICE?.candle?.close
+        || inputs.marketData?.PRICE?.candle?.close
+        || mgi.PRICE?.candle?.close;
+    const currentPrice = (rawPrice && typeof rawPrice === 'number' && !isNaN(rawPrice)) ? rawPrice : 'N/A';
 
-    const daltonContext = calculateOpeningContext(mgi, typeof openPrice === 'number' ? openPrice : 0, typeof currentPrice === 'number' ? currentPrice : 0);
+    if (currentPrice === 'N/A') {
+        throw new Error('No hay precio actual disponible. Espera a que lleguen datos del relay antes de solicitar una actualización.');
+    }
+
+    const openPrice = firstVwapObj?.parsed_data?.PRICE?.candle?.open || currentPrice;
+
+    const daltonContext = calculateOpeningContext(mgi, typeof openPrice === 'number' ? openPrice : 0, currentPrice);
 
     // ---- INYECCIÓN DE CONTEXTO HORARIO LOCAL (TIME AWARENESS) ----
     const localHour = baseDate.getHours();

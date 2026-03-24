@@ -1,0 +1,463 @@
+{
+  "version": "1.0",
+  "generado": "2026-03-24",
+  "fuente": "AMT Edge Discovery 994 sesiones MNQ1! Mar2022-Mar2026",
+  "stat_context": {
+    "ib_percentiles": {
+      "p10": 53, "p33": 76, "p50": 95, "p67": 116, "p90": 181
+    },
+    "atr_percentiles": {
+      "p25": 157, "p50": 199, "p75": 256, "p90": 328
+    },
+    "target_factors_up": {
+      "q25": 0.0, "q50": 0.38, "q75": 1.0, "q90": 1.68
+    },
+    "target_factors_down": {
+      "q25": 0.0, "q50": 0.31, "q75": 0.94, "q90": 1.75
+    },
+    "stop_factor_atr": 0.30
+  },
+  "setups": [
+    {
+      "id": "ib_confirma_abajo_vwap_plano",
+      "nombre": "IB confirmó abajo + VWAP plano",
+      "prioridad": 1,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ABAJO",
+        "vwap_slope": "PLANO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 1.00,
+        "baseline": 0.37,
+        "lift": 2.68,
+        "n_sesiones": 31
+      },
+      "conviccion": "MAXIMA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "ib_confirma_abajo_vwap_plano_vol_alto",
+      "nombre": "IB confirmó abajo + VWAP plano + Vol IB alto",
+      "prioridad": 2,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ABAJO",
+        "vwap_slope": "PLANO",
+        "ib_vol_alto": true
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 1.00,
+        "baseline": 0.37,
+        "lift": 2.68,
+        "n_sesiones": 30
+      },
+      "conviccion": "MAXIMA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "ib_cierra_bajo_val_vwap_plano",
+      "nombre": "IB cierra abajo VAL + VWAP plano",
+      "prioridad": 3,
+      "condiciones": {
+        "cierre_vs_va": "ABAJO_VAL",
+        "vwap_slope": "PLANO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.97,
+        "baseline": 0.37,
+        "lift": 2.60,
+        "n_sesiones": 37
+      },
+      "conviccion": "MAXIMA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "ib_confirma_abajo_vwap_bajista",
+      "nombre": "IB confirmó abajo + VWAP bajista",
+      "prioridad": 4,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ABAJO",
+        "vwap_slope": "BAJISTA"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.93,
+        "baseline": 0.37,
+        "lift": 2.47,
+        "n_sesiones": 82
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "apertura_lejos_abajo_estrecho",
+      "nombre": "Apertura muy lejos abajo + IB estrecho",
+      "prioridad": 5,
+      "condiciones": {
+        "clasificacion_apertura": "MUY_LEJOS_ABAJO",
+        "clasificacion": "ESTRECHO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.93,
+        "baseline": 0.37,
+        "lift": 2.47,
+        "n_sesiones": 69
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "gap_bajista_ib_confirma_abajo",
+      "nombre": "Gap bajista + IB confirmó abajo",
+      "prioridad": 6,
+      "condiciones": {
+        "gap_tipo": "BAJISTA",
+        "confirmacion": "CONFIRMADO_ABAJO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.92,
+        "baseline": 0.37,
+        "lift": 2.45,
+        "n_sesiones": 219
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "apertura_lejos_abajo_ib_confirma_abajo",
+      "nombre": "Apertura muy lejos abajo + IB confirmó abajo",
+      "prioridad": 7,
+      "condiciones": {
+        "clasificacion_apertura": "MUY_LEJOS_ABAJO",
+        "confirmacion": "CONFIRMADO_ABAJO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.92,
+        "baseline": 0.37,
+        "lift": 2.44,
+        "n_sesiones": 201
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "ib_confirma_abajo_estrecho",
+      "nombre": "IB confirmó abajo + IB estrecho",
+      "prioridad": 8,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ABAJO",
+        "clasificacion": "ESTRECHO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.92,
+        "baseline": 0.37,
+        "lift": 2.44,
+        "n_sesiones": 72
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "ib_confirma_abajo",
+      "nombre": "IB confirmó abajo",
+      "prioridad": 9,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ABAJO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.90,
+        "baseline": 0.37,
+        "lift": 2.41,
+        "n_sesiones": 226
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "ib_confirma_arriba_vwap_alcista_normal",
+      "nombre": "IB confirmó arriba + VWAP alcista + IB normal",
+      "prioridad": 10,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "vwap_slope": "ALCISTA",
+        "clasificacion": "NORMAL"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.98,
+        "baseline": 0.46,
+        "lift": 2.14,
+        "n_sesiones": 50
+      },
+      "conviccion": "MAXIMA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "apertura_lejos_arriba_vwap_alcista_normal",
+      "nombre": "Apertura muy lejos arriba + VWAP alcista + IB normal",
+      "prioridad": 11,
+      "condiciones": {
+        "clasificacion_apertura": "MUY_LEJOS_ARRIBA",
+        "vwap_slope": "ALCISTA",
+        "clasificacion": "NORMAL"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.96,
+        "baseline": 0.46,
+        "lift": 2.10,
+        "n_sesiones": 51
+      },
+      "conviccion": "MAXIMA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "apertura_lejos_arriba_ib_confirma_arriba_vwap_alcista",
+      "nombre": "Apertura muy lejos arriba + IB confirmó arriba + VWAP alcista",
+      "prioridad": 12,
+      "condiciones": {
+        "clasificacion_apertura": "MUY_LEJOS_ARRIBA",
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "vwap_slope": "ALCISTA"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.96,
+        "baseline": 0.46,
+        "lift": 2.09,
+        "n_sesiones": 120
+      },
+      "conviccion": "MAXIMA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "ib_confirma_arriba_vwap_alcista_vol_alto",
+      "nombre": "IB confirmó arriba + VWAP alcista + Vol IB alto",
+      "prioridad": 13,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "vwap_slope": "ALCISTA",
+        "ib_vol_alto": true
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.96,
+        "baseline": 0.46,
+        "lift": 2.09,
+        "n_sesiones": 136
+      },
+      "conviccion": "MAXIMA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "ib_confirma_arriba_vwap_alcista",
+      "nombre": "IB confirmó arriba + VWAP alcista",
+      "prioridad": 14,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "vwap_slope": "ALCISTA"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.95,
+        "baseline": 0.46,
+        "lift": 2.07,
+        "n_sesiones": 139
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "gap_alcista_ib_confirma_arriba_vwap_alcista",
+      "nombre": "Gap alcista + IB confirmó arriba + VWAP alcista",
+      "prioridad": 15,
+      "condiciones": {
+        "gap_tipo": "ALCISTA",
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "vwap_slope": "ALCISTA"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.95,
+        "baseline": 0.46,
+        "lift": 2.07,
+        "n_sesiones": 136
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "ib_confirma_arriba_vwap_plano",
+      "nombre": "IB confirmó arriba + VWAP plano",
+      "prioridad": 16,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "vwap_slope": "PLANO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.88,
+        "baseline": 0.46,
+        "lift": 1.91,
+        "n_sesiones": 51
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "ib_confirma_arriba_normal",
+      "nombre": "IB confirmó arriba + IB normal",
+      "prioridad": 17,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ARRIBA",
+        "clasificacion": "NORMAL"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.92,
+        "baseline": 0.46,
+        "lift": 2.00,
+        "n_sesiones": 94
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "ib_confirma_arriba",
+      "nombre": "IB confirmó arriba",
+      "prioridad": 18,
+      "condiciones": {
+        "confirmacion": "CONFIRMADO_ARRIBA"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.88,
+        "baseline": 0.46,
+        "lift": 1.91,
+        "n_sesiones": 292
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "vwap_alcista_estrecho_rompe_ibh",
+      "nombre": "VWAP alcista + IB estrecho (Rompe IBH)",
+      "prioridad": 19,
+      "condiciones": {
+        "vwap_slope": "ALCISTA",
+        "clasificacion": "ESTRECHO"
+      },
+      "estadisticas": {
+        "outcome": "rompe_ibh",
+        "bateo": 0.91,
+        "baseline": 0.69,
+        "lift": 1.31,
+        "n_sesiones": 164
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    },
+    {
+      "id": "ib_cierra_bajo_val_vwap_bajista_estrecho",
+      "nombre": "IB cierra abajo VAL + VWAP bajista + IB estrecho (Rompe IBL)",
+      "prioridad": 20,
+      "condiciones": {
+        "cierre_vs_va": "ABAJO_VAL",
+        "vwap_slope": "BAJISTA",
+        "clasificacion": "ESTRECHO"
+      },
+      "estadisticas": {
+        "outcome": "rompe_ibl",
+        "bateo": 0.92,
+        "baseline": 0.61,
+        "lift": 1.49,
+        "n_sesiones": 36
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "gap_alcista_vwap_bajista_estrecho_trend",
+      "nombre": "Gap alcista + VWAP bajista + IB estrecho (Trend Day)",
+      "prioridad": 21,
+      "condiciones": {
+        "gap_tipo": "ALCISTA",
+        "vwap_slope": "BAJISTA",
+        "clasificacion": "ESTRECHO"
+      },
+      "estadisticas": {
+        "outcome": "trend_day",
+        "bateo": 0.79,
+        "baseline": 0.58,
+        "lift": 1.35,
+        "n_sesiones": 67
+      },
+      "conviccion": "MODERADA",
+      "accion": "Esperar breakout del IB — alta probabilidad de extensión",
+      "target_type": "UP"
+    },
+    {
+      "id": "apertura_lejos_abajo",
+      "nombre": "Apertura muy lejos abajo",
+      "prioridad": 22,
+      "condiciones": {
+        "clasificacion_apertura": "MUY_LEJOS_ABAJO"
+      },
+      "estadisticas": {
+        "outcome": "cierra_debajo_va",
+        "bateo": 0.88,
+        "baseline": 0.37,
+        "lift": 2.34,
+        "n_sesiones": 230
+      },
+      "conviccion": "ALTA",
+      "accion": "SHORT en breakout del IBL",
+      "target_type": "DOWN"
+    },
+    {
+      "id": "apertura_lejos_arriba",
+      "nombre": "Apertura muy lejos arriba",
+      "prioridad": 23,
+      "condiciones": {
+        "clasificacion_apertura": "MUY_LEJOS_ARRIBA"
+      },
+      "estadisticas": {
+        "outcome": "cierra_encima_va",
+        "bateo": 0.86,
+        "baseline": 0.46,
+        "lift": 1.87,
+        "n_sesiones": 291
+      },
+      "conviccion": "ALTA",
+      "accion": "LONG en breakout del IBH",
+      "target_type": "UP"
+    }
+  ]
+}

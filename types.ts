@@ -99,3 +99,36 @@ export interface ActiveSetup {
     expiry_time: string;
     status: 'WAITING' | 'TRIGGERED' | 'EXPIRED' | 'CANCELLED' | 'NONE';
 }
+
+export interface AMTSetupData {
+    ib_classification: {
+        range: number;
+        clasificacion: string;
+        confirmacion: string;
+        cierre_vs_va: string;
+        vwap_slope: string;
+        toca_vah: boolean;
+        toca_val: boolean;
+        toca_poc: boolean;
+    };
+    setup: {
+        id: string;
+        nombre: string;
+        outcome_predicho: string;
+        bateo_historico: number;
+        n_sesiones: number;
+        conviccion: 'MAXIMA' | 'ALTA' | 'MODERADA';
+        accion_sugerida: string;
+        nivel_entrada: number;
+        target_q50: number;
+        target_q75: number;
+        target_q90: number;
+        stop_sugerido: number;
+    } | null;
+}
+
+export interface AMTSetupResponse {
+    status: 'success' | 'no_data';
+    timestamp?: string;
+    setup_json?: AMTSetupData;
+}

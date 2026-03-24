@@ -148,7 +148,7 @@ export const buildPlanVueloPrompt = async (inputs: UserInputs): Promise<string> 
     `;
 };
 
-export const buildAperturaPrompt = async (inputs: { marketData: any, balance: number, drawdownMax: number, marginPerContract: number }): Promise<string> => {
+export const buildAperturaPrompt = async (inputs: { marketData: any, balance: number, drawdownMax: number, marginPerContract: number, amtSetup?: any }): Promise<string> => {
     // Extraer la fecha (YYYY-MM-DD) del timestamp para evitar desfases de Timezone del navegador
     let dateStr = "";
     if (inputs.marketData && inputs.marketData.timestamp) {
@@ -215,6 +215,12 @@ export const buildAperturaPrompt = async (inputs: { marketData: any, balance: nu
     PRECIO_ACTUAL = ${currentPrice}
     ⚠️ PROHIBIDO usar PRECIO_ACTUAL como soporte, resistencia o zona de caza. Es puramente el precio de cotización en este instante.
 
+    ${(inputs.amtSetup?.setup?.conviccion === 'ALTA' || inputs.amtSetup?.setup?.conviccion === 'MAXIMA') ? `
+    [AMT_ENGINE_OUTPUT - PRIORIDAD MAXIMA]:
+    El Motor Estadístico ha clasificado el setup de hoy con respaldo de 994 sesiones históricas.
+    Tu trabajo es EJECUTAR este setup si el tape lo confirma. No analices — decide.
+    Setup: ${JSON.stringify(inputs.amtSetup)}
+    ` : `
     4. 📐 NIVELES INSTITUCIONALES VWAP (FUENTE: MGI JSONL — USAR ESTOS PARA SETUPS):
     VWAP_RTH          = ${latestVwapObj?.parsed_data?.PRICE?.VWAP_RTH ?? mgi.PRICE?.VWAP_RTH ?? 'N/A'}
     VWAP_RTH_1SD_UP   = ${latestVwapObj?.parsed_data?.PRICE?.VWAP_RTH_1SD_UP ?? mgi.PRICE?.VWAP_RTH_1SD_UP ?? 'N/A'}
@@ -233,6 +239,7 @@ export const buildAperturaPrompt = async (inputs: { marketData: any, balance: nu
     - Exceso inferior: ${mgi.MGI_RTH?.EXCESS_LOWER_PCT || '0'}% → ${mgi.MGI_RTH?.EXCESS_LOWER_TYPE || 'N/A'}
     - Nodos 5D Previos: POCs [${mgi.MGI_NODES?.POCs_5D?.join(', ') || ''}]
     - Contexto ON: ONH ${mgi.MGI_RTH?.ONH} | ONL ${mgi.MGI_RTH?.ONL}
+    `}
 
     6. AUDITORIA DE CONTEXTO DALTON (SISTEMA):
     - SESGO DEL DÍA: ${daltonContext.sesgo}
@@ -250,7 +257,7 @@ export const buildAperturaPrompt = async (inputs: { marketData: any, balance: nu
 
 
 
-export const buildUpdatePrompt = async (inputs: { marketData: any, balance: number, drawdownMax: number, marginPerContract: number }): Promise<string> => {
+export const buildUpdatePrompt = async (inputs: { marketData: any, balance: number, drawdownMax: number, marginPerContract: number, amtSetup?: any }): Promise<string> => {
     // Extraer la fecha del timestamp para coincidir con el servidor de la DB
     let dateStr = "";
     let timeStr = "";
@@ -344,12 +351,14 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
     2. VECTOR OHLC RECIENTE (Últimas 30 velas hasta la Actualidad):
     ${vwapLog || 'Sin datos de VWAP registrados.'}
 
-    3. ⚡ PRECIO ACTUAL DE MERCADO (NO ES UN NIVEL INSTITUCIONAL — SOLO PRECIO VIVO):
-    PRECIO_ACTUAL = ${currentPrice}
-    ⚠️ PROHIBIDO usar PRECIO_ACTUAL como soporte, resistencia o zona de caza. Es puramente el precio de cotización en este instante.
-    ⚠️ PRECIO ACTUAL EN TIEMPO REAL: ${currentPrice}
-    REGLA CRÍTICA: Ningún setup puede estar a más de 50 puntos de ${currentPrice}. Si un nivel está más lejos, ignóralo y busca uno más cercano.
+    - Contexto ON: ONH ${mgi.MGI_RTH?.ONH} | ONL ${mgi.MGI_RTH?.ONL}
 
+    ${(inputs.amtSetup?.setup?.conviccion === 'ALTA' || inputs.amtSetup?.setup?.conviccion === 'MAXIMA') ? `
+    [AMT_ENGINE_OUTPUT - PRIORIDAD MAXIMA]:
+    El Motor Estadístico ha clasificado el setup de hoy con respaldo de 994 sesiones históricas.
+    Tu trabajo es EJECUTAR este setup si el tape lo confirma. No analices — decide.
+    Setup: ${JSON.stringify(inputs.amtSetup)}
+    ` : `
     4. 📐 NIVELES INSTITUCIONALES VWAP (FUENTE: MGI JSONL — USAR ESTOS PARA SETUPS):
     VWAP_RTH          = ${latestVwapObj?.parsed_data?.PRICE?.VWAP_RTH ?? mgi.PRICE?.VWAP_RTH ?? 'N/A'}
     VWAP_RTH_1SD_UP   = ${latestVwapObj?.parsed_data?.PRICE?.VWAP_RTH_1SD_UP ?? mgi.PRICE?.VWAP_RTH_1SD_UP ?? 'N/A'}
@@ -367,6 +376,7 @@ export const buildUpdatePrompt = async (inputs: { marketData: any, balance: numb
     - Initial Balance (IB): HIGH ${mgi.MGI_IB?.IB_HIGH} | LOW ${mgi.MGI_IB?.IB_LOW} | MID ${mgi.MGI_IB?.IB_MID} | REGIME: ${mgi.MGI_IB?.IB_REGIME}
     - Nodos 5D Previos: POCs [${mgi.MGI_NODES?.POCs_5D?.join(', ') || ''}]
     - Contexto ON: ONH ${mgi.MGI_RTH?.ONH} | ONL ${mgi.MGI_RTH?.ONL}
+    `}
 
     6. AUDITORIA DE CONTEXTO DALTON (SISTEMA):
     - SESGO DEL DÍA ACTUALIZADO: ${daltonContext.sesgo}

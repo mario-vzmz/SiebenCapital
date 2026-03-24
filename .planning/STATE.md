@@ -16,6 +16,8 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 
 - Fase 1 de Estabilización Cognitiva (mitigación de amnesia y de redundancia en Taylor) completada satisfactoriamente.
 - Fase 2 de Gestión Activa inicializada con The Station Roadmap.
+
+
 - Esperando inicio de sprint para la automatización de la campana de apertura y la auditoría dinámica del RRR ante un trade precargado en el payload.
 
 ## Open Threads

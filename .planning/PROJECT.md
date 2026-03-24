@@ -6,7 +6,8 @@ Sieben no es un bot de Alta Frecuencia (HFT) ni un trader autónomo; es un compa
 
 ## Core Value
 
-Mantener al trader sujeto a un proceso analítico estricto y elocuente dictado por algoritmos de contexto y secuencias de tiempo; la disciplina procedimental importa más que la velocidad de ejecución.
+Mantener al trader sujeto a un proceso analítico estricto respaldado por datos estadísticos determinísticos; la precisión procedimental y la reducción de latencia cognitiva son prioridades.
+
 
 ## Requirements
 
@@ -36,7 +37,10 @@ Mantener al trader sujeto a un proceso analítico estricto y elocuente dictado p
 
 - **Tech Stack:** Frontend en React/Vite (TSX), Backend en Python Flask recibiendo Webhooks de TradingView (enrutados por ngrok).
 - **LLM Backbone:** Google Gemini / Claude APIs; la ingeniería de prompts (`systemInstructions.ts`) es el alma de la aplicación.
-- **Estado Actual:** Milestone 2 Completado. El sistema ahora es consciente del régimen, ajusta el riesgo dinámicamente y aprende de cada sesión de cierre.
+- **Estado Actual:** Nueva Arquitectura AMT Inicializada (Fase 1: Motor Python).
+
+
+
 
 ## Constraints
 

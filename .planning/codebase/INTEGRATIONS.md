@@ -1,9 +1,20 @@
-# External Integrations
+# Integrations & External APIs
 
-## Data Sources
-- **TradingView Webhooks**: Provides intraday MGI data, OHLC (VWAP) candles, and Macro metrics (VIX, ATR).
-- Incoming payload arrives at Python Relay Server (`/webhook`) running on `localhost:5000`.
+## 1. Google Gemini (The Intelligence)
+- **Model**: `gemini-2.0-flash`.
+- **Method**: Direct injection via `@google/genai` on the frontend.
+- **Usage**: Phased deliberations (Plan de Vuelo, Apertura, Updates, Gestión).
+- **Authentication**: `process.env.API_KEY` or `window.aistudio.hasSelectedApiKey`.
 
-## AI / Agentic Layer
-- The system heavily relies on prompt injection to LLMs.
-- Multiple agents defined in `systemInstructions.ts` (Jim, Axe, Taylor, Wendy, Wags) are orchestrated simulating a trading desk.
+## 2. TradingView (The Signal)
+- **Method**: HTTP POST via JSON Webhook.
+- **Tunneling**: ngrok (exposes local port 5000).
+- **Format**: PineScript-driven JSON payloads (VWAP, MGI, Volume).
+
+## 3. Local Filesystem (The L1 Cache)
+- **JSONL**: Used as an append-only transaction log for high-frequency market data.
+- **SQLite**: Used for relational data and historical auditing.
+
+## 4. Environment Keys
+- `API_KEY`: Required for Gemini communication.
+- `.env.local`: Local overrides for ports and keys.

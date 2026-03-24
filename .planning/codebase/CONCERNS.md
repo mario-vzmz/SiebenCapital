@@ -1,6 +1,22 @@
-# Areas of Concern / Tech Debt
+# Technical Concerns & Debt
 
-1. **State / Interval Collisions**: The `setInterval` polling at 2000ms might collide with heavy async tasks (like LLM stream fetching) if not properly debounced in the frontend.
-2. **Context Window Limitations (Lost in The Middle)**: The system previously fed full-day VWAP data to LLMs, causing data hallucinations. Partially mitigated by `.slice(-30)`, but requires constant vigilance as JSONL files grow.
-3. **Data Dependency**: If TradingView webhooks halt or `ngrok` expires, the Python Relay freezes the entire React UI logic.
-4. **Prompt Duplication**: Agent prompts must be strictly managed (e.g., separated `TAYLOR_ACTUALIZACION` from `TAYLOR_EJECUCION`) to avoid repetitive Markdown behaviors.
+## 1. Monolithic Orchestrator
+- **File**: `index.tsx` (~1300 lines).
+- **Issue**: It handles UI, polling, state, AI logic, and persistence. 
+- **Recommendation**: Decouple agent orchestration into custom hooks or an `AgentManager` service.
+
+## 2. Polling Efficiency
+- **Issue**: 2000ms polling is functional but can introduce UI lag or missed signals if the relay becomes slow. 
+- **Recommendation**: Consider WebSockets (Socket.IO) for real-time market telemetry.
+
+## 3. Regex Fragility
+- **Issue**: `parseAndSaveAxeSetup` relies on strict table formats. If Gemini changes output slightly, parsing fails.
+- **Recommendation**: Refine prompt to request JSON output for structured data (already partially implemented in some phases).
+
+## 4. Test Coverage
+- **Issue**: No unit tests found for core logic (Prompt builders, data mergers, relay handlers).
+- **Recommendation**: Add Jest/Vitest for TypeScript logic and Pytest for the relay.
+
+## 5. Persistence Synchronization
+- **Issue**: Mixing `localStorage` with `SQLite` can lead to desynchronization if not managed carefully.
+- **Recommendation**: Centralize state hydration from a single source of truth (the Relay DB).

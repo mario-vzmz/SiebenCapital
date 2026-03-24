@@ -16,6 +16,7 @@ import { Sidebar } from './components/Sidebar';
 import { SidebarV2 } from './components/Sidebar_v2';
 import { TasksSidebar } from './components/TasksSidebar';
 import { MGIOutput } from './components/MGIOutput';
+import { AMTPanel } from './components/AMTPanel';
 import { AgentFeed } from './components/AgentFeed';
 import { MentalCheckDialog, WendyCheckInput } from './components/MentalCheckDialog';
 import { TradeDialog } from './components/TradeDialog';
@@ -481,11 +482,24 @@ export default function App() {
     try {
       setIsProcessing(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Fetch AMT Setup
+      let amtSetup = null;
+      try {
+        const amtRes = await fetch(apiUrl('/api/amt/setup'));
+        if (amtRes.ok) {
+          const amtData = await amtRes.json();
+          if (amtData.status === 'success') {
+            amtSetup = amtData.setup;
+          }
+        }
+      } catch (e) { console.error("Error fetching AMT setup", e); }
+
       const prompt = await buildAperturaPrompt({
         marketData,
         balance: parseFloat(balance),
         drawdownMax: parseFloat(drawdownMax),
-        marginPerContract: parseFloat(marginPerContract)
+        marginPerContract: parseFloat(marginPerContract),
+        amtSetup
       });
 
       // --- PHASE 1: JIM (Context & Regime) ---
@@ -612,11 +626,25 @@ export default function App() {
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      // Fetch AMT Setup
+      let amtSetup = null;
+      try {
+        const amtRes = await fetch(apiUrl('/api/amt/setup'));
+        if (amtRes.ok) {
+          const amtData = await amtRes.json();
+          if (amtData.status === 'success') {
+            amtSetup = amtData.setup;
+          }
+        }
+      } catch (e) { console.error("Error fetching AMT setup", e); }
+
       const prompt = await buildUpdatePrompt({
         marketData,
         balance: parseFloat(balance),
         drawdownMax: parseFloat(drawdownMax),
-        marginPerContract: parseFloat(marginPerContract)
+        marginPerContract: parseFloat(marginPerContract),
+        amtSetup
       });
 
       // --- PHASE 1: JIM ---
@@ -1221,6 +1249,8 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 custom-scrollbar space-y-12 w-0 min-w-full relative">
+            <AMTPanel />
+            
             {phase === 'IDLE' && deliberations.length === 0 && !isProcessing && (
               <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-6">
                 <div className="w-16 h-16 rounded-full border border-cyan-500/20 flex items-center justify-center animate-pulse">

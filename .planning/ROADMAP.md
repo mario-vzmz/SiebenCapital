@@ -2,10 +2,14 @@
 
 ## Active Phase
 
-### Phase 3: Optimización y Backtesting de Regímenes
-**Goal**: Refinar la precisión de Wags y la visualización de datos históricos para una toma de decisiones más rápida.
-- [ ] Implementar Dashboard de Performance en la UI.
-- [ ] Sistema de alertas para divergencia entre Jim y Taylor.
+### Phase 3: Nueva Arquitectura AMT (Determinística)
+**Goal**: Reemplazar inferencia LLM (Jim) por Motor Python AMT y optimizar Axe.
+- [ ] Motor Python: Clasificación estadística de 994 sesiones.
+- [ ] Axe Redesign: Ejecutor de setups de alta convicción.
+- [ ] Dashboard: Panel de setups AMT en tiempo real.
+
+
+
 
 ---
 

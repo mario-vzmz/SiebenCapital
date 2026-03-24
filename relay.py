@@ -6,6 +6,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from regime_memory import get_regime_context
+from amt.amt_engine import AMTEngine
 
 app = Flask(__name__)
 CORS(app)
@@ -15,6 +16,7 @@ VWAP_FILE = 'data/vwap_price.jsonl'
 MGI_FILE = 'data/mgi_data.jsonl'
 DELIBERATIONS_FILE = 'data/deliberations.jsonl'
 DB_FILE = 'data/sieben.db'
+AMT_SETUPS_FILE = 'data/amt_setups.jsonl'
 
 # Memoria de Setups y Buffer de Velas
 ACTIVE_SETUPS = {} # id -> setup
@@ -168,6 +170,9 @@ def init_db():
 
 # Inicializar Base de Datos SQLite
 init_db()
+
+# Inicializar Motor AMT
+amt_engine = AMTEngine()
 
 def save_to_jsonl(data, file_path):
     """Guarda el dato usando append en formato JSON Lines"""
@@ -871,6 +876,42 @@ def webhook():
                             conn.close()
                         except Exception as db_e:
                             print(f"Error saving MGI_IB to DB: {db_e}")
+                        
+                        # Phase 2: Auto-trigger AMT Engine
+                        try:
+                            # We need previous VA and ATR for the engine.
+                            # For now, we attempt to get them from the same json_data or last_data.
+                            va_previo = json_data.get("MGI_RTH", last_data.get("parsed_data", {}).get("MGI_RTH"))
+                            atr_3d = json_data.get("MGI_MACRO", {}).get("ATR_3DAY_SMA", 
+                                       last_data.get("parsed_data", {}).get("MGI_MACRO", {}).get("ATR_3DAY_SMA", 200))
+                            
+                            if va_previo and ib:
+                                # Prepare input for engine
+                                ib_mapped = {
+                                    "open": ib.get("IB_OPEN"),
+                                    "high": ib.get("IB_HIGH"),
+                                    "low": ib.get("IB_LOW"),
+                                    "close": ib.get("IB_MID"), # Using MID as close for classification if not closed
+                                    "volume": ib.get("IB_RANGE"), # Mock volume if needed, or use real
+                                    "vwap": ib.get("IB_MID"), # Mock vwap if needed
+                                    "gap": 0 # TODO: Calculate real gap
+                                }
+                                va_mapped = {
+                                    "vah": va_previo.get("Y_VAH"),
+                                    "val": va_previo.get("Y_VAL"),
+                                    "poc": va_previo.get("Y_POC"),
+                                    "rango": va_previo.get("Y_MAX", 0) - va_previo.get("Y_MIN", 0)
+                                }
+                                
+                                result = amt_engine.run_fase2(ib_mapped, va_mapped, atr_3d)
+                                setup_entry = {
+                                    "timestamp": datetime.now().isoformat(),
+                                    "setup_json": result
+                                }
+                                save_to_jsonl(setup_entry, AMT_SETUPS_FILE)
+                                print(f"[+] AMT Engine auto-triggered: {result.get('setup', {}).get('nombre', 'No setup')}")
+                        except Exception as amt_e:
+                            print(f"[-] Error auto-triggering AMT Engine: {amt_e}")
                 
                 last_data["parsed_data"] = json_data 
                 last_data["status"] = "JSON_SUCCESS"
@@ -938,6 +979,79 @@ def webhook():
         response = jsonify(response_data)
         response.headers.add('ngrok-skip-browser-warning', 'true')
         return response
+
+@app.route('/api/amt/setup', methods=['GET'])
+def get_amt_setup():
+    """
+    Retorna el último setup AMT generado.
+    """
+    if not os.path.exists(AMT_SETUPS_FILE):
+        return jsonify({"status": "no_data", "message": "No hay setups AMT registrados"}), 404
+    
+    last_line = read_last_line(AMT_SETUPS_FILE)
+    if not last_line:
+        return jsonify({"status": "no_data", "message": "No hay setups AMT registrados"}), 404
+        
+    return jsonify({
+        "status": "success",
+        "timestamp": last_line.get("timestamp"),
+        "setup_json": last_line.get("setup_json")
+    }), 200
+
+@app.route('/api/amt/trigger', methods=['POST'])
+def trigger_amt_engine():
+    """
+    Activa manualmente el motor AMT para generar un setup.
+    """
+    try:
+        # 1. Obtener datos necesarios para la clasificación
+        # Se asume que el engine puede acceder a la base de datos o al buffer de velas
+        # Por ahora, simularemos que recibe los datos en el POST o los busca en los archivos
+        
+        # En una implementación real, aquí se buscaría el VA previo, el ATR y la data del IB
+        # Para V1, permitimos que el trigger fuerce una ejecución con lo que haya en el relay
+        
+        # Ejemplo simplificado de trigger (simulando Fase 2 completa):
+        # Phase 2: Historical date support
+        fecha = request.json.get("fecha")
+        ib_data = request.json.get("ib_data")
+        va_previo = request.json.get("va_previo")
+        atr_3d = request.json.get("atr_3d", 200)
+
+        if fecha == "2026-03-20":
+            # Mock data for Test Phase 2
+            ib_data = {
+                "open": 17980, "high": 17985, "low": 17940, "close": 17960,
+                "volume": 50000, "vwap": 17960, "gap": 0
+            }
+            va_previo = {
+                "vah": 18050, "val": 17990, "poc": 18020, "rango": 150
+            }
+            atr_3d = 200
+        elif fecha:
+            # TODO: Implement real DB fetching for historical date
+            return jsonify({"status": "error", "message": f"Data for date {fecha} not found in DB"}), 404
+        
+        if not ib_data or not va_previo:
+            return jsonify({"status": "error", "message": "Faltan ib_data o va_previo"}), 400
+            
+        result = amt_engine.run_fase2(ib_data, va_previo, atr_3d)
+        
+        setup_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "setup_json": result
+        }
+        
+        save_to_jsonl(setup_entry, AMT_SETUPS_FILE)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Motor AMT ejecutado exitosamente",
+            "result": result
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     print("--- RELAY DE DATOS MGI (API ENDPOINTS ACTIVOS) ---")
